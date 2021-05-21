@@ -180,7 +180,7 @@ def get_fake_useragent(browser=None, use_cache=True):
 
     browsers = data["browsers"]
 
-    if browser is not None:
+    if browser is not None and browser != "":
         if not isinstance(browser, str):
             raise FakeUserAgentError("Please input a valid browser name")
         browser = browser.strip().lower()
@@ -197,4 +197,5 @@ def get_fake_useragent(browser=None, use_cache=True):
 
 
 if __name__ == "__main__":
-    get_fake_useragent("qq")
+    input = input("Input a browser name or hit <enter> not to specify browser: ")
+    get_fake_useragent(input)
