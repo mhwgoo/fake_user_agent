@@ -20,6 +20,14 @@ BROWSER_BASE_PAGE = (
 
 BROWSERS_COUNT_LIMIT = 50
 
+BROWSERS = {
+    "chrome": 80.7,
+    "edge": 5.6,
+    "firefox": 6.1,
+    "safari": 3.7,
+    "opera": 2.4,
+}
+
 
 SHORTCUTS = {
     "internet explorer": "edge",
