@@ -23,29 +23,41 @@ def test_utils_get():
         assert utils.get("https://i3wm.org") is not None
 
 
-@mock.patch("fake_useragent.utils.get_browsers")
-def test_utils_load(mock_get_browsers):
-    # NOTE:side_effect should have same arguments with target function
-    # becaue it replaces target function in test execution
-    def side_effect(verify_ssl=True):
-        return [
-            ("Chrome", " 90"),
-            ("Edge", " 4"),
-            ("Firefox", " 3"),
-            ("Safari", " 2"),
-            ("Opera", " 1"),
-        ]
+# After get rid of get_browsers(), this way of test doesn't needed
+# @mock.patch("fake_useragent.utils.get_browsers")
+# def test_utils_load(mock_get_browsers):
+#    # NOTE:side_effect should have same arguments with target function
+#    # becaue it replaces target function in test execution
+#    def side_effect(verify_ssl=True):
+#        return [
+#            ("Chrome", " 90"),
+#            ("Edge", " 4"),
+#            ("Firefox", " 3"),
+#            ("Safari", " 2"),
+#            ("Opera", " 1"),
+#        ]
+#
+#    mock_get_browsers.side_effect = side_effect
+#    data = utils.load()
+#    x = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+#
+#    assert data is not None
+#    assert isinstance(data["browsers"], dict)
+#    assert data["randomize"] is not None
+#    assert x in data["browsers"]["chrome"]
 
-    mock_get_browsers.side_effect = side_effect
-    data = utils.load()
+# TODO Make test case of load() granular
+def test_utils_load():
+    data = utils.load(use_cache_server=True)
     x = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
 
     assert data is not None
     assert isinstance(data["browsers"], dict)
-    assert data["randomize"] is not None
+    assert data["browsers"] is not None
     assert x in data["browsers"]["chrome"]
 
 
+# TODO Make data in cache server same with data not from cache server
 def test_utils_get_cache_server():
     body = utils.get(settings.CACHE_SERVER).decode("utf-8")
 

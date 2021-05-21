@@ -46,7 +46,7 @@ def get(url, verify_ssl=True):
                 ) as response:
                     return response.read()
         except (URLError, OSError) as e:
-            logger.debug("Error occured during fetching %s", url, exc_info=e)
+            logger.debug("Error occurred during fetching %s", url, exc_info=e)
 
             if attempt == settings.HTTP_RETRIES:
                 raise FakeUserAgentError("Maximum amount of retries reached")
@@ -55,38 +55,41 @@ def get(url, verify_ssl=True):
                 sleep(settings.HTTP_DELAY)
 
 
-def get_browsers():
-    """
-    very hardcoded/dirty re/split stuff, but no dependencies
-
-    """
-    html = get(settings.BROWSERS_STATS_PAGE)
-    html = html.decode("utf-8")
-    html = html.split('<table class="w3-table-all notranslate">')[1]
-    html = html.split("</table")[0]
-
-    pattern = r'\.asp">(.+?)<'
-    # NOTE: re.findall returns stuff in () group, re.finditer return the whole string
-    # >>> x ='<td class="right"> 80.7 %</td>'
-    # >>> pattern = r'td\sclass="right">(.+?)\s'
-    # >>> re.findall(pattern, x))
-    # [' 80.7']
-    # >>> re.finditer(pattern, x))
-    # <callable_iterator object at 0x10b164f10>
-    # >>> for i in re.finditer(pattern, x):
-    # ...     print(i)
-    # <re.Match object; span=(1, 24), match='td class="right"> 80.7 '>
-    browsers = re.findall(pattern, html)
-
-    # dict.get(key, default=None)
-    # settings.OVERRIDES don't take effect because browsers scraped without Edge/IE
-    browsers = [settings.OVERRIDES.get(browser, browser) for browser in browsers]
-
-    pattern = r'td\sclass="right">(.+?)\s'
-    browsers_stats = re.findall(pattern, html)
-
-    # NOTE: when len(x) = 4, len(y) = 100, len(list(zip(x, y))) = 4, the first 4s
-    return list(zip(browsers, browsers_stats))
+# This func is time-consuming, only for a small static piece of data
+# You scrape the whole page, only for one two line of data in it
+# Not worth it in term of getting a random useragent
+# def get_browsers():
+#    """
+#    very hardcoded/dirty re/split stuff, but no dependencies
+#
+#    """
+#    html = get(settings.BROWSERS_STATS_PAGE)
+#    html = html.decode("utf-8")
+#    html = html.split('<table class="w3-table-all notranslate">')[1]
+#    html = html.split("</table")[0]
+#
+#    pattern = r'\.asp">(.+?)<'
+#    # NOTE: re.findall returns stuff in () group, re.finditer return the whole string
+#    # >>> x ='<td class="right"> 80.7 %</td>'
+#    # >>> pattern = r'td\sclass="right">(.+?)\s'
+#    # >>> re.findall(pattern, x))
+#    # [' 80.7']
+#    # >>> re.finditer(pattern, x))
+#    # <callable_iterator object at 0x10b164f10>
+#    # >>> for i in re.finditer(pattern, x):
+#    # ...     print(i)
+#    # <re.Match object; span=(1, 24), match='td class="right"> 80.7 '>
+#    browsers = re.findall(pattern, html)
+#
+#    # dict.get(key, default=None)
+#    # settings.OVERRIDES don't take effect because browsers scraped without Edge/IE
+#    browsers = [settings.OVERRIDES.get(browser, browser) for browser in browsers]
+#
+#    pattern = r'td\sclass="right">(.+?)\s'
+#    browsers_stats = re.findall(pattern, html)
+#
+#    # NOTE: when len(x) = 4, len(y) = 100, len(list(zip(x, y))) = 4, the first 4s
+#    return list(zip(browsers, browsers_stats))
 
 
 def get_browser_versions(browser):
@@ -127,39 +130,27 @@ def get_cache_server():
 
 
 def load(use_cache_server=True):
-    get_browsers = [
-        ("Chrome", " 80.7"),
-        ("Edge", " 5.6"),
-        ("Firefox", " 6.1"),
-        ("Safari", " 3.7"),
-        ("Opera", " 2.4"),
-    ]
+    # keep the prior data structure, backward compatible with data from cache server
     browsers_dict = {}
-    randomize_dict = {}
 
     try:
-        for item in get_browsers:
-            browser, percent = item
-            browser = browser.strip().lower()
+        for browser in settings.BROWSERS.keys():
             browsers_dict[browser] = get_browser_versions(browser)
-
-            for _ in range(int(float(percent) * 10)):
-                randomize_dict[str(len(randomize_dict))] = browser
 
     except Exception as exc:
         if not use_cache_server:
-            raise exc
+            raise exc  # if raise is hit, nothing will execute under raise lien
 
         logger.warning(
-            "Error occured  during loading data."  # logging Message
+            "Error occurred during loading data."  # logging Message
             "Trying to use cache server %s",
             settings.CACHE_SERVER,  # logging Argument
-            exc_info=exc,  # logging exc_info, a.k.a trackback
+            exc_info=exc,  # logging exc_info, a.k.a traceback
         )
         return get_cache_server()
 
     else:
-        result = {"browsers": browsers_dict, "randomize": randomize_dict}
+        result = {"browsers": browsers_dict}
         return result
 
 
@@ -178,33 +169,32 @@ def read(path):
 def get_fake_useragent(browser=None, use_cache=True):
     if use_cache:
         path = settings.DB
-        # if os.path.isfile(path) & os.path.getsize(path) > 0:  ---> this check took nealy 10s
+        # if os.path.isfile(path) & os.path.getsize(path) > 0:  ---> this check took nearly 10s
         if os.path.isfile(path):
             data = read(path)
-
         else:
             write(path, load())
             data = read(path)
-
     else:
         data = load()
 
     browsers = data["browsers"]
-    randomize = list(data["randomize"].values())
+
     if browser is not None:
         if not isinstance(browser, str):
-            raise FakeUserAgentError("Please use a valid browser name.")
+            raise FakeUserAgentError("Please input a valid browser name")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
-        if not browser in list(browsers.keys()):
-
+        if browser not in list(browsers.keys()):
             raise FakeUserAgentError("This browser is not supported.")
+        print(random.choice(browsers[browser]))
 
     else:
-        browser = random.choice(randomize)
-
-    print(random.choice(browsers[browser]))
+        browser = random.choices(
+            list(browsers.keys()), weights=list(settings.BROWSERS.values()), k=1
+        )[0]
+        print(random.choice(browsers[browser]))
 
 
 if __name__ == "__main__":
-    get_fake_useragent()
+    get_fake_useragent("qq")
