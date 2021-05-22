@@ -6,10 +6,12 @@ import inspect
 import contextlib
 import ssl
 import random
+import threading
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 from urllib.parse import quote_plus
 from time import sleep
+from threading import Thread
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,7 +48,7 @@ def get(url, verify_ssl=True):
                 ) as response:
                     return response.read()
         except (URLError, OSError) as e:
-            logger.debug("Error occurred during fetching %s", url, exc_info=e)
+            logger.debug("Error occurred during fetching %s", url)
 
             if attempt == settings.HTTP_RETRIES:
                 raise FakeUserAgentError("Maximum amount of retries reached")
@@ -55,7 +57,7 @@ def get(url, verify_ssl=True):
                 sleep(settings.HTTP_DELAY)
 
 
-# This func is time-consuming, only for a small static piece of data
+# NOTE: This func is time-consuming, only for a small static piece of data
 # You scrape the whole page, only for one two line of data in it
 # Not worth it in term of getting a random useragent
 # def get_browsers():
@@ -69,7 +71,7 @@ def get(url, verify_ssl=True):
 #    html = html.split("</table")[0]
 #
 #    pattern = r'\.asp">(.+?)<'
-#    # NOTE: re.findall returns stuff in () group, re.finditer return the whole string
+#    # re.findall returns stuff in () group, re.finditer return the whole string
 #    # >>> x ='<td class="right"> 80.7 %</td>'
 #    # >>> pattern = r'td\sclass="right">(.+?)\s'
 #    # >>> re.findall(pattern, x))
@@ -88,8 +90,42 @@ def get(url, verify_ssl=True):
 #    pattern = r'td\sclass="right">(.+?)\s'
 #    browsers_stats = re.findall(pattern, html)
 #
-#    # NOTE: when len(x) = 4, len(y) = 100, len(list(zip(x, y))) = 4, the first 4s
+#    # when len(x) = 4, len(y) = 100, len(list(zip(x, y))) = 4, the first 4s
 #    return list(zip(browsers, browsers_stats))
+
+
+# NOTE:Fetch only one page for all. but the url can't be requested
+# def get_browser_versions(browsers):
+#    html = get("http://useragentstring.com/pages/useragentstring.php?typ=Browser")
+#    html = html.decode("iso-8859-1")
+#
+#    all_browser_versions = {}
+#    for browser in browsers:
+#        html_browser = html.split("{}</h3>".format(browser))[1]
+#        html_browser = html_browser.split("<h3>")[0]
+#        pattern = r"\?id=\d+\'>(.+?)</a"
+#        versions_iter = re.finditer(pattern, html_browser)
+#
+#        versions = []
+#
+#        for version in versions_iter:
+#            if "more" in version.group(1).lower():
+#                continue
+#
+#            versions.append(version.group(1))
+#
+#            if len(versions) == settings.BROWSERS_COUNT_LIMIT:
+#                break
+#
+#        if not versions:
+#            raise FakeUserAgentError("No browsers version found for %s" % browser)
+#
+#        all_browser_versions[browser] = versions
+#        return all_browser_versions
+
+
+# NOTE: This is because thread can't return value
+all_versions = {}
 
 
 def get_browser_versions(browser):
@@ -105,11 +141,11 @@ def get_browser_versions(browser):
 
     browsers = []
 
-    for browser in browsers_iter:
-        if "more" in browser.group(1).lower():
+    for match in browsers_iter:
+        if "more" in match.group(1).lower():
             continue
 
-        browsers.append(browser.group(1))
+        browsers.append(match.group(1))
 
         if len(browsers) == settings.BROWSERS_COUNT_LIMIT:
             break
@@ -117,7 +153,7 @@ def get_browser_versions(browser):
     if not browsers:
         raise FakeUserAgentError("No browsers version found for %s" % browser)
 
-    return browsers
+    all_versions[browser] = browsers
 
 
 def get_cache_server():
@@ -130,27 +166,28 @@ def get_cache_server():
 
 
 def load(use_cache_server=True):
-    # keep the prior data structure, backward compatible with data from cache server
-    browsers_dict = {}
-
     try:
-        for browser in settings.BROWSERS.keys():
-            browsers_dict[browser] = get_browser_versions(browser)
+        threads = [
+            Thread(target=get_browser_versions, args=(browser,))
+            for browser in settings.BROWSERS.keys()
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
     except Exception as exc:
         if not use_cache_server:
             raise exc  # if raise is hit, nothing will execute under raise lien
 
         logger.warning(
-            "Error occurred during loading data."  # logging Message
-            "Trying to use cache server %s",
+            "Timeout when fetching real time browser versions. Trying to use cache server %s",
             settings.CACHE_SERVER,  # logging Argument
-            exc_info=exc,  # logging exc_info, a.k.a traceback
         )
         return get_cache_server()
 
     else:
-        result = {"browsers": browsers_dict}
+        result = {"browsers": all_versions}  # for compabibility with cache server
         return result
 
 
@@ -180,7 +217,10 @@ def get_fake_useragent(browser=None, use_cache=True):
 
     browsers = data["browsers"]
 
-    if browser is not None and browser != "":
+    if (
+        browser
+    ):  # i.e. browser is not None and browser != "" because bool(None) is False, bool("") is False
+        # if browser value is taken from input, this check has no effect
         if not isinstance(browser, str):
             raise FakeUserAgentError("Please input a valid browser name")
         browser = browser.strip().lower()
@@ -190,6 +230,7 @@ def get_fake_useragent(browser=None, use_cache=True):
         print(random.choice(browsers[browser]))
 
     else:
+        # This way enables data set clean, small, and consistent
         browser = random.choices(
             list(browsers.keys()), weights=list(settings.BROWSERS.values()), k=1
         )[0]
