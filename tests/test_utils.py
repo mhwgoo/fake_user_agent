@@ -16,8 +16,11 @@ def test_utils_get():
 
     # This wouldn't take effect, because requests library verify certificate expired or not
     # whereas urllib doesn't verify expiration, so this line is only for urllib
+    # with pytest.raises(errors.FakeUserAgentError):
+    #    utils.get("https://expired.badssl.com/")
+
     with pytest.raises(errors.FakeUserAgentError):
-        utils.get("https://expired.badssl.com/")
+        utils.get(settings.BROWSERS_STATS_PAGE)
 
 
 # After get rid of get_browsers(), this way of test doesn't needed

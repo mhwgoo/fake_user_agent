@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fake_useragent import settings
 from fake_useragent.log import logger
+from fake_useragent.errors import FakeUserAgentError
 
 
 def get(url):
