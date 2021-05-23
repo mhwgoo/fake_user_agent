@@ -4,7 +4,9 @@ import re
 import json
 import random
 from time import sleep, time
-from threading import Thread
+import concurrent.futures
+
+# from threading import Thread
 import requests
 from requests import exceptions
 from urllib.parse import quote_plus
@@ -143,8 +145,9 @@ def get(url):
 #        return all_browser_versions
 
 
-# NOTE: This is because thread can't return value
-all_versions = {}
+# NOTE: This is because thread can't return value. No need when implementing threadpool
+# threadpool can get target function's return value
+# all_versions = {}
 
 
 def get_browser_versions(browser):
@@ -171,7 +174,8 @@ def get_browser_versions(browser):
     if not browsers:
         raise FakeUserAgentError("No browsers version found for %s" % browser)
 
-    all_versions[browser] = browsers
+    # all_versions[browser] = browsers  # no need when implementing threadpool
+    return browsers
 
 
 def get_cache_server():
@@ -183,32 +187,64 @@ def get_cache_server():
     return data
 
 
+# def load(use_cache_server=True):
+#    try:
+#        t0 = time()
+#        threads = [
+#            Thread(target=get_browser_versions, args=(browser,))
+#            for browser in settings.BROWSERS.keys()
+#        ]
+#        for t in threads:
+#            t1 = time()
+#            t.start()
+#        for t in threads:
+#            t.join()
+#            print(f"time taken for fetching online data by {t.name}: ", time() - t1)
+#        print("Total time taken:", time() - t0)
+#
+#    except Exception as exc:
+#        if not use_cache_server:
+#            raise exc  # if raise is hit, nothing below will execute
+#
+#        logger.warning(
+#            "Timeout when fetching real time browser versions. Trying to use cache server %s",
+#            settings.CACHE_SERVER,
+#        )
+#        return get_cache_server()
+#
+#    else:
+#        result = {"browsers": all_versions}  # for compability with cache server
+#        return result
+
+
 def load(use_cache_server=True):
-    try:
-        t1 = time()
-        threads = [
-            Thread(target=get_browser_versions, args=(browser,))
+    all_versions = {}
+    t0 = time()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_browser = {
+            executor.submit(get_browser_versions, browser): browser
             for browser in settings.BROWSERS.keys()
-        ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        print("time taken for fetching online data: ", time() - t1)
+        }
+        for future in concurrent.futures.as_completed(future_to_browser):
+            t1 = time()
+            browser = future_to_browser[future]
+            try:
+                data = future.result()
+            except Exception as exc:
+                if not use_cache_server:
+                    raise exc  # if raise is hit, nothing below will execute
 
-    except Exception as exc:
-        if not use_cache_server:
-            raise exc  # if raise is hit, nothing below will execute
-
-        logger.warning(
-            "Timeout when fetching real time browser versions. Trying to use cache server %s",
-            settings.CACHE_SERVER,
-        )
-        return get_cache_server()
-
-    else:
-        result = {"browsers": all_versions}  # for compability with cache server
-        return result
+                logger.warning(
+                    "Timeout when fetching real time browser versions. Trying to use cache server %s",
+                    settings.CACHE_SERVER,
+                )
+                return get_cache_server()
+            else:
+                all_versions[browser] = data
+                print("time taken for fetching online data: ", time() - t1)
+    print("Total time taken:", time() - t0)
+    result = {"browsers": all_versions}  # for compability with cache server
+    return result
 
 
 def write(path, data):
@@ -260,3 +296,38 @@ def get_fake_useragent(browser=None, use_cache=True):
 if __name__ == "__main__":
     input = input("Input a browser name or hit <enter> not to specify browser: ")
     get_fake_useragent(input)
+
+
+"""Time taken by streadpool
+Input a browser name or hit <enter> not to specify browser: opera
+time taken for fetching online data:  1.0967254638671875e-05
+time taken for fetching online data:  1.0013580322265625e-05
+time taken for fetching online data:  1.0013580322265625e-05
+time taken for fetching online data:  1.0967254638671875e-05
+time taken for fetching online data:  1.0013580322265625e-05
+Total time taken: 3.6471869945526123
+Opera/9.80 (Windows NT 6.1; U; zh-tw) Presto/2.7.62 Version/11.01
+"""
+
+"""Time taken by multithreads without pool
+Input a browser name or hit <enter> not to specify browser: opera
+time taken for fetching online data:  3.7235822677612305
+time taken for fetching online data:  3.723679304122925
+time taken for fetching online data:  6.358659267425537
+time taken for fetching online data:  6.358726263046265
+time taken for fetching online data:  6.358747243881226
+Total time taken: 6.363626956939697
+Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16.2
+"""
+
+
+"""Time taken without pool at 21:25
+Input a browser name or hit <enter> not to specify browser: opera
+time taken for fetching online data by Thread-1:  2.7625961303710938
+time taken for fetching online data by Thread-2:  2.762986183166504
+time taken for fetching online data by Thread-3:  4.039973258972168
+time taken for fetching online data by Thread-4:  4.0400331020355225
+time taken for fetching online data by Thread-5:  4.040057182312012
+Total time taken: 4.043054819107056
+Opera/9.80 (X11; Linux i686; Ubuntu/14.10) Presto/2.12.388 Version/12.16.2
+"""
