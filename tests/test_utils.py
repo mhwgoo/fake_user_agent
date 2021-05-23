@@ -8,19 +8,16 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 from fake_useragent import utils, errors, settings
-from fake_useragent.utils import urlopen_has_ssl_context
-
 
 # NOTE Google blocks requests not from browser, don't test with google url
 def test_utils_get():
+    assert utils.get("https://i3wm.org") is not None
     assert utils.get("http://info.cern.ch/") is not None
 
-    if urlopen_has_ssl_context:
-        with pytest.raises(errors.FakeUserAgentError):
-            utils.get("https://expired.badssl.com/")
-
-        assert utils.get("https://expired.badssl.com", verify_ssl=False) is not None
-        assert utils.get("https://i3wm.org") is not None
+    # This wouldn't take effect, because requests library verify certificate expired or not
+    # whereas urllib doesn't verify expiration, so this line is only for urllib
+    with pytest.raises(errors.FakeUserAgentError):
+        utils.get("https://expired.badssl.com/")
 
 
 # After get rid of get_browsers(), this way of test doesn't needed
@@ -46,7 +43,7 @@ def test_utils_get():
 #    assert data["randomize"] is not None
 #    assert x in data["browsers"]["chrome"]
 
-# TODO Make test case of load() granular
+
 def test_utils_load():
     data = utils.load(use_cache_server=True)
     x = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
@@ -57,9 +54,8 @@ def test_utils_load():
     assert x in data["browsers"]["chrome"]
 
 
-# TODO Make data in cache server same with data not from cache server
 def test_utils_get_cache_server():
-    body = utils.get(settings.CACHE_SERVER).decode("utf-8")
+    body = utils.get(settings.CACHE_SERVER)
 
     data = json.loads(body)
 

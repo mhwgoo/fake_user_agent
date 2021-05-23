@@ -2,59 +2,77 @@ import os
 import sys
 import re
 import json
-import inspect
-import contextlib
-import ssl
 import random
-import threading
-from urllib.request import urlopen, Request
-from urllib.error import URLError
-from urllib.parse import quote_plus
-from time import sleep
+from time import sleep, time
 from threading import Thread
+import requests
+from requests import exceptions
+from urllib.parse import quote_plus
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fake_useragent import settings
 from fake_useragent.log import logger
-from fake_useragent.errors import FakeUserAgentError
-
-urlopen_args = inspect.getfullargspec(urlopen).kwonlyargs
-urlopen_has_ssl_context = "context" in urlopen_args
 
 
-def get(url, verify_ssl=True):
+def get(url):
     attempt = 0
-
     while True:
-        request = Request(url)
-        attempt += 1
-        try:
-            # url with https
-            if urlopen_has_ssl_context:
-                if not verify_ssl:
-                    # opt out of certificate verification on a single connection
-                    context = ssl._create_unverified_context()
-                else:
-                    context = None
-                with contextlib.closing(
-                    urlopen(request, timeout=settings.HTTP_TIMEOUT, context=context)
-                ) as response:
-                    return response.read()
-            # url with http without s
-            else:
-                with contextlib.closing(
-                    urlopen(request, timeout=settings.HTTP_TIMEOUT)
-                ) as response:
-                    return response.read()
-        except (URLError, OSError) as e:
-            logger.debug("Error occurred during fetching %s", url)
+        with requests.Session() as s:
+            attempt += 1
+            try:
+                r = s.get(url, timeout=settings.HTTP_TIMEOUT)
+            except exceptions.SSLError:
+                r = s.get(url, timeout=settings.HTTP_TIMEOUT, verify=False)
+                return r.text
+            except exceptions.Timeout:
+                logger.debug("Error occurred during fetching %s", url)
 
-            if attempt == settings.HTTP_RETRIES:
-                raise FakeUserAgentError("Maximum amount of retries reached")
+                if attempt == settings.HTTP_RETRIES:
+                    raise FakeUserAgentError("Maximum amount of retries reached")
+                else:
+                    logger.debug("Sleeping for %s seconds", settings.HTTP_DELAY)
+                    sleep(settings.HTTP_DELAY)
+            except Exception as e:
+                logger.debug("Error occurred during fetching %s", url, exe_info=e)
+
             else:
-                logger.debug("Sleeping for %s seconds", settings.HTTP_DELAY)
-                sleep(settings.HTTP_DELAY)
+                return r.text
+
+
+# NOTE: without session, every request thread opens a new connection, time-consuming
+# def get(url, verify_ssl=True):
+#    attempt = 0
+#
+#    while True:
+#        request = Request(url)
+#        attempt += 1
+#        try:
+#            # url with https
+#            if urlopen_has_ssl_context:
+#                if not verify_ssl:
+#                    # opt out of certificate verification on a single connection
+#                    context = ssl._create_unverified_context()
+#                else:
+#                    context = None
+#                with contextlib.closing(
+#                    urlopen(request, timeout=settings.HTTP_TIMEOUT, context=context)
+#                ) as response:
+#                    return response.read()
+#            # url with http without s
+#            else:
+#                with contextlib.closing(
+#                    urlopen(request, timeout=settings.HTTP_TIMEOUT)
+#                ) as response:
+#                    return response.read()
+#        except (URLError, OSError) as e:
+#            logger.debug("Error occurred during fetching %s", url)
+#
+#            if attempt == settings.HTTP_RETRIES:
+#                raise FakeUserAgentError("Maximum amount of retries reached")
+#            else:
+#                logger.debug("Sleeping for %s seconds", settings.HTTP_DELAY)
+#                sleep(settings.HTTP_DELAY)
 
 
 # NOTE: This func is time-consuming, only for a small static piece of data
@@ -94,7 +112,7 @@ def get(url, verify_ssl=True):
 #    return list(zip(browsers, browsers_stats))
 
 
-# NOTE:Fetch only one page for all. but the url can't be requested
+# NOTE: Fetch only one page for all. but the url can't be requested
 # def get_browser_versions(browsers):
 #    html = get("http://useragentstring.com/pages/useragentstring.php?typ=Browser")
 #    html = html.decode("iso-8859-1")
@@ -130,7 +148,6 @@ all_versions = {}
 
 def get_browser_versions(browser):
     html = get(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)))
-    html = html.decode("iso-8859-1")
 
     # split on 'some string', you get a list of strings without 'some string'
     html = html.split("<div id='liste'>")[1]
@@ -167,6 +184,7 @@ def get_cache_server():
 
 def load(use_cache_server=True):
     try:
+        t1 = time()
         threads = [
             Thread(target=get_browser_versions, args=(browser,))
             for browser in settings.BROWSERS.keys()
@@ -175,19 +193,20 @@ def load(use_cache_server=True):
             t.start()
         for t in threads:
             t.join()
+        print("time taken for fetching online data: ", time() - t1)
 
     except Exception as exc:
         if not use_cache_server:
-            raise exc  # if raise is hit, nothing will execute under raise lien
+            raise exc  # if raise is hit, nothing below will execute
 
         logger.warning(
             "Timeout when fetching real time browser versions. Trying to use cache server %s",
-            settings.CACHE_SERVER,  # logging Argument
+            settings.CACHE_SERVER,
         )
         return get_cache_server()
 
     else:
-        result = {"browsers": all_versions}  # for compabibility with cache server
+        result = {"browsers": all_versions}  # for compability with cache server
         return result
 
 

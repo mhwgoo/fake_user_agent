@@ -44,7 +44,7 @@ OVERRIDES = {
     "IE/Edge": "Internet Explorer",
 }
 
-HTTP_TIMEOUT = 5
+HTTP_TIMEOUT = 10
 
 HTTP_RETRIES = 2
 
