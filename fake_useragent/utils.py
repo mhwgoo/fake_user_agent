@@ -3,7 +3,7 @@ import sys
 import re
 import json
 import random
-from time import sleep, time
+from time import sleep
 import concurrent.futures
 from threading import Thread
 import requests
@@ -131,7 +131,6 @@ def random_choose(browser=None, use_cache=True):
         )
         data = fetch_server()["browsers"]
 
-    # Equivalent to browser is not None and browser != ""
     if browser:
         if not isinstance(browser, str):
             raise FakeUserAgentError("Please input a valid browser name")
@@ -151,7 +150,5 @@ def random_choose(browser=None, use_cache=True):
 
 
 if __name__ == "__main__":
-    t1 = time()
     input = input("Input a browser name or hit <enter> not to specify browser: ")
     random_choose(input)
-    print(time() - t1)

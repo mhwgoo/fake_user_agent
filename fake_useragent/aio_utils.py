@@ -3,7 +3,7 @@ import sys
 import re
 import json
 import random
-from time import sleep, time
+from time import sleep
 from urllib.parse import quote_plus
 from collections import defaultdict
 import threading
@@ -87,7 +87,6 @@ def fetch_server():
 
 
 def random_choose(browser=None, use_cache=True):
-
     try:
         if use_cache:
             path = settings.DB
@@ -100,17 +99,6 @@ def random_choose(browser=None, use_cache=True):
 
         else:
             data = asyncio.run(load())
-
-    # try:
-    #    if use_cache:
-    #        path = settings.DB
-    #        if not os.path.isfile(path):
-    #            data = asyncio.run(load())
-    #            write(path, data)
-    #        else:
-    #            data = read(path)
-    #    else:
-    #        data = asyncio.run(load())
     except Exception:
         logger.warning(
             "Problem happened. Switch to fetching backup data from server %s",
@@ -138,7 +126,5 @@ def random_choose(browser=None, use_cache=True):
 
 
 if __name__ == "__main__":
-    t1 = time()
     input = input("Input a browser name or hit <enter> not to specify browser: ")
     random_choose(input)
-    print(time() - t1)
