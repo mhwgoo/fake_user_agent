@@ -99,8 +99,7 @@ def read(path):
         return json.loads(data)
 
 
-def random_choose(browser):
-    data = read(settings.DB)
+def random_choose(browser, data):
     if browser:
         print(random.choice(data[browser]))
 
@@ -123,12 +122,13 @@ def main(browser):
             raise FakeUserAgentError("This browser is not supported.")
 
     if os.path.isfile(settings.DB):
-        random_choose(browser)
+        data = read(settings.DB)
+        random_choose(browser, data)
 
     else:
         load()
+        random_choose(browser, all_versions)
         write(settings.DB, all_versions)
-        random_choose(browser)
 
 
 if __name__ == "__main__":
