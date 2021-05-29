@@ -79,14 +79,15 @@ def random_choose(browser):
 
 
 async def main(browser):
+    if browser:
+        if not isinstance(browser, str):
+            raise FakeUserAgentError("Please input a valid browser name")
+        browser = browser.strip().lower()
+        browser = settings.SHORTCUTS.get(browser, browser)
+        if browser not in list(settings.BROWSERS.keys()):
+            raise FakeUserAgentError("This browser is not supported.")
+
     if os.path.isfile(settings.DB):
-        if browser:
-            if not isinstance(browser, str):
-                raise FakeUserAgentError("Please input a valid browser name")
-            browser = browser.strip().lower()
-            browser = settings.SHORTCUTS.get(browser, browser)
-            if browser not in list(settings.BROWSERS.keys()):
-                raise FakeUserAgentError("This browser is not supported.")
         random_choose(browser)
 
     else:

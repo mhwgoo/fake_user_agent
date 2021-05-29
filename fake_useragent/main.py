@@ -69,8 +69,6 @@ def load():
     for t in threads:
         t.join()
 
-    return all_versions
-
 
 # NOTE: load() threadpool version, haven't used
 def load_by_threadpool(use_cache_server=True):
@@ -101,41 +99,9 @@ def read(path):
         return json.loads(data)
 
 
-def fetch_server():
-    try:
-        data = fetch(settings.CACHE_SERVER)
-        data = json.loads(data)
-    except (TypeError, ValueError):
-        raise FakeUserAgentError("Can not load data from cache server")
-    return data
-
-
-def random_choose(browser=None, use_cache=True):
-    try:
-        if use_cache:
-            path = settings.DB
-            if os.path.isfile(path):
-                data = read(path)
-            else:
-                data = load()
-                t = Thread(target=write, args=(path, data))
-                t.start()
-        else:
-            data = load()
-    except Exception:
-        logger.warning(
-            "Problem happened. Switch to fetching backup data from server %s",
-            settings.CACHE_SERVER,
-        )
-        data = fetch_server()["browsers"]
-
+def random_choose(browser):
+    data = read(settings.DB)
     if browser:
-        if not isinstance(browser, str):
-            raise FakeUserAgentError("Please input a valid browser name")
-        browser = browser.strip().lower()
-        browser = settings.SHORTCUTS.get(browser, browser)
-        if browser not in list(settings.BROWSERS.keys()):
-            raise FakeUserAgentError("This browser is not supported.")
         print(random.choice(data[browser]))
 
     else:
@@ -147,6 +113,24 @@ def random_choose(browser=None, use_cache=True):
         print(random.choice(data[browser]))
 
 
+def main(browser):
+    if browser:
+        if not isinstance(browser, str):
+            raise FakeUserAgentError("Please input a valid browser name")
+        browser = browser.strip().lower()
+        browser = settings.SHORTCUTS.get(browser, browser)
+        if browser not in list(settings.BROWSERS.keys()):
+            raise FakeUserAgentError("This browser is not supported.")
+
+    if os.path.isfile(settings.DB):
+        random_choose(browser)
+
+    else:
+        load()
+        write(settings.DB, all_versions)
+        random_choose(browser)
+
+
 if __name__ == "__main__":
     input = input("Input a browser name or hit <enter> not to specify browser: ")
-    random_choose(input)
+    main(browser=input)
