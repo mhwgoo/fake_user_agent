@@ -36,7 +36,7 @@ def fetch(url):
             except exceptions.SSLError:
                 r = s.get(url, timeout=settings.HTTP_TIMEOUT, verify=False)
                 return r.text
-            except exceptions.Timeout:
+            except exceptions.ConnectTimeout:
                 logger.error("Error occurred during fetching %s", url)
 
                 if attempt == settings.HTTP_RETRIES:

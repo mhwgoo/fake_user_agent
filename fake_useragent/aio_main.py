@@ -23,33 +23,37 @@ all_versions = defaultdict(list)
 async def fetch(url, session):
     attempt = 0
     while True:
-        async with session.get(
-            url, timeout=settings.HTTP_TIMEOUT, verify_ssl=False
-        ) as resp:
-            # try/except block should be inside async with context manager, or it'll break
-            try:
+        try:
+            async with session.get(
+                url, timeout=settings.HTTP_TIMEOUT, ssl=False
+            ) as resp:
                 attempt += 1
                 result = await resp.text()
-            except aiohttp.ServerTimeoutError:
-                logger.error("Error occurred during fetching %s", url)
-                if attempt == settings.HTTP_RETRIES:
-                    raise FakeUserAgentError("Maximum amount of retries reached")
-                else:
-                    logger.info("Sleeping for %s seconds", settings.HTTP_DELAY)
-                    sleep(settings.HTTP_DELAY)
+        except asyncio.TimeoutError:
+            logger.error("Error occurred during fetching %s", url)
+            if attempt == settings.HTTP_RETRIES:
+                raise FakeUserAgentError("Maximum amount of retries reached")
             else:
-                return result
+                logger.info("Sleeping for %s seconds", settings.HTTP_DELAY)
+                sleep(settings.HTTP_DELAY)
+        else:
+            return result
 
 
 async def parse(browser, session):
-    html_str = await fetch(
-        settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session
-    )
-    lxml_element = etree.HTML(html_str)
-    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-        : settings.BROWSERS_COUNT_LIMIT
-    ]
-    all_versions[browser].extend(versions)
+    global all_versions
+    try:
+        html_str = await fetch(
+            settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session
+        )
+    except Exception:
+        all_versions = await fetch(settings.CACHE_SERVER)["browsers"]
+    else:
+        lxml_element = etree.HTML(html_str)
+        versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
+            : settings.BROWSERS_COUNT_LIMIT
+        ]
+        all_versions[browser].extend(versions)
 
 
 def write(path, data):
