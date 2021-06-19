@@ -17,4 +17,5 @@ requires-python = ">=3.7"
 
 keywords = "python, useragent, http, header"
 
-
+[tool.flit.scripts]
+fakeua = "fake_user_agent:aio_main"

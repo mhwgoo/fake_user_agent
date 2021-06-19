@@ -71,7 +71,7 @@ def read(path):
 
 def random_choose(browser, data):
     if browser:
-        return random.choice(data[browser])
+        print(random.choice(data[browser]))
 
     else:
         browser = random.choices(
@@ -79,7 +79,7 @@ def random_choose(browser, data):
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
-        random.choice(data[browser])
+        print(random.choice(data[browser]))
 
 
 async def main(browser):
@@ -105,4 +105,6 @@ async def main(browser):
             write(settings.DB, all_versions)
 
 
-asyncio.run(main(browser=input))
+if __name__ == "__main__":
+    input = input("Input a browser name or hit <enter> not to specify browser: ")
+    asyncio.run(main(browser=input))
