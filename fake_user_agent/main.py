@@ -133,5 +133,5 @@ def main(browser):
 
 
 if __name__ == "__main__":
-    input = input("Input a browser name or hit <enter> not to specify browser: ")
-    main(browser=input)
+    browser = input("Input a browser name or hit <enter> not to specify browser: ")
+    main(browser=browser)
