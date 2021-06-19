@@ -10,7 +10,7 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 fakeua <browser name>  # designate a browser 
 fakeua  # don't designate a browser
 ```
-!(/screenshots/browser.png)
+![](/screenshots/browser.png)
 
 # Installation
 ```python
