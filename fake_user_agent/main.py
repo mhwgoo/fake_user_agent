@@ -15,9 +15,9 @@ from lxml import etree
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fake_useragent import settings
-from fake_useragent.log import logger
-from fake_useragent.errors import FakeUserAgentError
+from fake_user_agent import settings
+from fake_user_agent.log import logger
+from fake_user_agent.errors import FakeUserAgentError
 
 all_versions = defaultdict(list)
 

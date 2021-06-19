@@ -1,3 +1,4 @@
-/fake_useragent/__pycache__/
+/fake_user_agent/__pycache__/
+/tests/__pycache__/
 dist/
 

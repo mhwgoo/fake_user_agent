@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
-module = "fake_useragent"
+module = "fake_user_agent"
 description-file = "README.md"
 author = "Kate Wang"
 author-email = "kate.wang2018@gmail.com"
