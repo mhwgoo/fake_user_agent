@@ -1,7 +1,11 @@
+"""setting static data"""
 import os
+import sys
 import tempfile
 
-__version__ = "0.1.11"
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from fake_useragent import __version__
+
 
 DB = os.path.join(
     tempfile.gettempdir(), "fake_useragent_{version}.json".format(version=__version__)

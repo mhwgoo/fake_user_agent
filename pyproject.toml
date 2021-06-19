@@ -1,0 +1,20 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "fake_useragent"
+description-file = "README.md"
+author = "Kate Wang"
+author-email = "kate.wang2018@gmail.com"
+home-page = "https://github.com/KateWang2016/fake_user_agent"
+
+classifiers = [ "License :: OSI Approved :: MIT License",]
+
+requires = ["lxml", "aiohttp"]
+
+requires-python = ">=3.7"
+
+keywords = "python, useragent, http, header"
+
+

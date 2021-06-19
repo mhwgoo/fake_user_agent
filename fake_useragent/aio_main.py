@@ -1,3 +1,4 @@
+"""Main script to randomly generate a fake useragent using asyncio"""
 import os
 import sys
 import json
@@ -70,7 +71,7 @@ def read(path):
 
 def random_choose(browser, data):
     if browser:
-        print(random.choice(data[browser]))
+        return random.choice(data[browser])
 
     else:
         browser = random.choices(
@@ -78,7 +79,7 @@ def random_choose(browser, data):
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
-        print(random.choice(data[browser]))
+        random.choice(data[browser])
 
 
 async def main(browser):
@@ -104,6 +105,4 @@ async def main(browser):
             write(settings.DB, all_versions)
 
 
-if __name__ == "__main__":
-    input = input("Input a browser name or hit <enter> not to specify browser: ")
-    asyncio.run(main(browser=input))
+asyncio.run(main(browser=input))

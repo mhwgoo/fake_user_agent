@@ -1,3 +1,4 @@
+"""Generate fake useragent using threading. This is only for offering another solution. Not actually called in the published pkg"""
 import os
 import sys
 import json
