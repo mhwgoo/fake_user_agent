@@ -9,13 +9,12 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 On terminal, enter `fakeua`
 ![](/screenshots/browser.png)
 
-In python script, import function
-
+In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
 ```python
 from fake_user_agent.main import user_agent
 
 # Not specify a browser:
-ua = user_agent()    
+ua = user_agent()
 
 # Specify a browser to random from:
 ua = user_agent("chrome")
