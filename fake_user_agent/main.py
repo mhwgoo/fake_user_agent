@@ -1,16 +1,14 @@
-"""Generate fake useragent using threading. This is only for offering another solution. Not actually called in the published pkg"""
+"""Main script to randomly generate a fake useragent using asyncio"""
 import os
 import sys
 import json
 import random
 from time import sleep
-import concurrent.futures
-from threading import Thread
-import requests
-from requests import exceptions
 from urllib.parse import quote_plus
 from collections import defaultdict
-
+import asyncio
+import aiohttp
+from aiohttp import ClientSession
 from lxml import etree
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,73 +17,44 @@ from fake_user_agent import settings
 from fake_user_agent.log import logger
 from fake_user_agent.errors import FakeUserAgentError
 
+
 all_versions = defaultdict(list)
 
 
-def fetch(url):
+async def fetch(url, session):
     attempt = 0
     while True:
-        with requests.Session() as s:
-            attempt += 1
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-            }
-            s.headers.update(headers)
-
-            try:
-                r = s.get(url, timeout=settings.HTTP_TIMEOUT)
-            except exceptions.SSLError:
-                r = s.get(url, timeout=settings.HTTP_TIMEOUT, verify=False)
-                return r.text
-            except exceptions.ConnectTimeout:
-                logger.error("Error occurred during fetching %s", url)
-
-                if attempt == settings.HTTP_RETRIES:
-                    raise FakeUserAgentError("Maximum amount of retries reached")
-                else:
-                    logger.debug("Sleeping for %s seconds", settings.HTTP_DELAY)
-                    sleep(settings.HTTP_DELAY)
-            except Exception:
-                logger.exception("Error occurred during fetching %s", url)
-
+        try:
+            async with session.get(
+                url, timeout=settings.HTTP_TIMEOUT, ssl=False
+            ) as resp:
+                attempt += 1
+                result = await resp.text()
+        except asyncio.TimeoutError:
+            logger.error("Error occurred during fetching %s", url)
+            if attempt == settings.HTTP_RETRIES:
+                raise FakeUserAgentError("Maximum amount of retries reached")
             else:
-                return r.text
+                logger.info("Sleeping for %s seconds", settings.HTTP_DELAY)
+                sleep(settings.HTTP_DELAY)
+        else:
+            return result
 
 
-def parse(browser):
-    html_str = fetch(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)))
-    lxml_element = etree.HTML(html_str)
-    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-        : settings.BROWSERS_COUNT_LIMIT
-    ]
-    all_versions[browser].extend(versions)
-
-
-def load():
-    threads = [
-        Thread(target=parse, args=(browser,)) for browser in settings.BROWSERS.keys()
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-
-
-# NOTE: load() threadpool version, haven't used
-def load_by_threadpool(use_cache_server=True):
-    all_versions = {}
-    # Without max_workers, it's the slowest, because it has to compute it
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_browser = {
-            executor.submit(get_browser_versions, browser): browser
-            for browser in settings.BROWSERS.keys()
-        }
-        for future in concurrent.futures.as_completed(future_to_browser):
-            browser = future_to_browser[future]
-            data = future.result()
-            all_versions[browser] = data
-
-    return all_versions
+async def parse(browser, session):
+    global all_versions
+    try:
+        html_str = await fetch(
+            settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session
+        )
+    except Exception:
+        all_versions = await fetch(settings.CACHE_SERVER)["browsers"]
+    else:
+        lxml_element = etree.HTML(html_str)
+        versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
+            : settings.BROWSERS_COUNT_LIMIT
+        ]
+        all_versions[browser].extend(versions)
 
 
 def write(path, data):
@@ -96,13 +65,13 @@ def write(path, data):
 
 def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
-        data = f.read()
-        return json.loads(data)
+        cache_data = f.read()
+        return json.loads(cache_data)
 
 
 def random_choose(browser, data):
     if browser:
-        print(random.choice(data[browser]))
+        return random.choice(data[browser])
 
     else:
         browser = random.choices(
@@ -110,13 +79,13 @@ def random_choose(browser, data):
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
-        print(random.choice(data[browser]))
+        return random.choice(data[browser])
 
 
-def main(browser):
+async def main(browser=None):
     if browser:
         if not isinstance(browser, str):
-            raise FakeUserAgentError("Please input a valid browser name")
+            raise FakeUserAgentError("Please give a valid browser name")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
         if browser not in list(settings.BROWSERS.keys()):
@@ -124,14 +93,24 @@ def main(browser):
 
     if os.path.isfile(settings.DB):
         data = read(settings.DB)
-        random_choose(browser, data)
+        return random_choose(browser, data)
 
     else:
-        load()
-        random_choose(browser, all_versions)
-        write(settings.DB, all_versions)
+        async with ClientSession() as session:
+            tasks = []
+            for BROWSER in settings.BROWSERS.keys():
+                tasks.append(parse(BROWSER, session))
+            await asyncio.gather(*tasks)
+            write(settings.DB, all_versions)
+            return random_choose(browser, all_versions)
 
 
-if __name__ == "__main__":
+# Get user agent from terminal
+def get_input():
     browser = input("Input a browser name or hit <enter> not to specify browser: ")
-    main(browser=browser)
+    print(asyncio.run(main(browser=browser)))
+
+
+# Get user agent by script import
+def user_agent(browser=None):
+    return asyncio.run(main(browser=browser))
