@@ -6,9 +6,20 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
   - changing random choice algorithm to improve random choice speed
 
 # Usage
-on terminal, enter `fakeua`
+On terminal, enter `fakeua`
 ![](/screenshots/browser.png)
 
+In python script, import function
+
+```python
+from fake_user_agent.main import user_agent
+
+# Not specify a browser:
+ua = user_agent()    
+
+# Specify a browser to random from:
+ua = user_agent("chrome")
+```
 # Installation
 ```python
 pip install fake_user_agent
