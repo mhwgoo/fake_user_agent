@@ -16,9 +16,23 @@ from fake_user_agent.main import user_agent
 # Not specify a browser:
 ua = user_agent()
 
-# Specify a browser to random from:
+# Specify a browser to randomly choose from:
 ua = user_agent("chrome")
+
+# Using tempfile takes less than 0.001s from the second time. 
+# Not using it takes less than 3s because of fetching data on the web each time.
+# By default tempfile is used, you can turn it off by:
+ua = user_agent(use_temfile=False)
+
+# Remove tempfile
+rm_tempfile()
 ```
+
+Remove tempfile with terminal command on Linux or MacOS, replace `var` to respective folder name on Windos
+```bash```
+find /var/ -name "fake_useragent*" -type f -exec rm {} \;
+```
+
 # Installation
 ```python
 pip install fake_user_agent

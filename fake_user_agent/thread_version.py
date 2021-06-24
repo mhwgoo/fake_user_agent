@@ -1,6 +1,5 @@
 """Generate fake useragent using threading. This is only for offering another solution. Not actually called in the published pkg"""
 import os
-import sys
 import json
 import random
 from time import sleep
@@ -12,8 +11,6 @@ from urllib.parse import quote_plus
 from collections import defaultdict
 
 from lxml import etree
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fake_user_agent import settings
 from fake_user_agent.log import logger

@@ -1,8 +1,8 @@
 """Main script to randomly generate a fake useragent using asyncio"""
 import os
-import sys
 import json
 import random
+import time
 from time import sleep
 from urllib.parse import quote_plus
 from collections import defaultdict
@@ -11,7 +11,7 @@ import aiohttp
 from aiohttp import ClientSession
 from lxml import etree
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fake_user_agent import settings
 from fake_user_agent.log import logger
@@ -69,6 +69,10 @@ def read(path):
         return json.loads(cache_data)
 
 
+def rm_tempfile():
+    os.remove(settings.DB)
+
+
 def random_choose(browser, data):
     if browser:
         return random.choice(data[browser])
@@ -82,7 +86,7 @@ def random_choose(browser, data):
         return random.choice(data[browser])
 
 
-async def main(browser=None):
+async def main(browser=None, use_tempfile=True):
     if browser:
         if not isinstance(browser, str):
             raise FakeUserAgentError("Please give a valid browser name")
@@ -101,7 +105,8 @@ async def main(browser=None):
             for BROWSER in settings.BROWSERS.keys():
                 tasks.append(parse(BROWSER, session))
             await asyncio.gather(*tasks)
-            write(settings.DB, all_versions)
+            if use_tempfile:
+                write(settings.DB, all_versions)
             return random_choose(browser, all_versions)
 
 
@@ -112,5 +117,5 @@ def get_input():
 
 
 # Get user agent by script import
-def user_agent(browser=None):
-    return asyncio.run(main(browser=browser))
+def user_agent(browser=None, use_tempfile=True):
+    return asyncio.run(main(browser, use_tempfile))
