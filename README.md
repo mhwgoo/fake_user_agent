@@ -28,7 +28,7 @@ ua = user_agent(use_temfile=False)
 rm_tempfile()
 ```
 
-Remove tempfile with terminal command on Linux or MacOS, replace `var` to respective folder name on Windos
+Remove tempfile with terminal command on Linux or MacOS. Replace `var` with respective folder name on Windows
 ```bash
 find /var/ -name "fake_useragent*" -type f -exec rm {} \;
 ```
