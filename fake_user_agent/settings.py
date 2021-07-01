@@ -13,7 +13,6 @@ DB = os.path.join(
 
 TEMP_FILE = glob.glob(os.path.join(tempfile.gettempdir(), "fake_useragent_*"))
 
-BROWSERS_STATS_PAGE = "https://www.w3schools.com/browsers/default.asp"
 
 BROWSER_BASE_PAGE = (
     "http://useragentstring.com/pages/useragentstring.php?name={browser}"  # noqa
