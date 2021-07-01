@@ -1,15 +1,17 @@
 Randomly generate a fake useragent.
 
 This project's idea is inspired by [fake-useragent](https://github.com/hellysmile/fake-useragent). I rewrote the whole codes in order to boost performance by:
-  - using asyncio and aiohttp to improve fetching speed
-  - taking advantage of Xpath to improve parsing speed
+  - using `asyncio` and `aiohttp` to improve fetching speed
+  - taking advantage of `Xpath` to improve parsing speed
   - changing random choice algorithm to improve random choice speed
 
 # Usage
-On terminal, enter `fakeua`
+On your terminal, enter `fakeua`
 ![](/screenshots/browser.png)
 
 In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
+
+Note: Don't put `user_agent()` in your async function, put it above the async function needing a useragent. That is because python `asyncio.run()` cannot be called when another asyncio event loop is running in the same thread.
 ```python
 from fake_user_agent.main import user_agent
 
