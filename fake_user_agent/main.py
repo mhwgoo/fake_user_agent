@@ -1,6 +1,5 @@
 """Main script to randomly generate a fake useragent using asyncio"""
 import os
-import glob
 import json
 import random
 import time
@@ -59,6 +58,7 @@ async def parse(browser, session):
 
 
 def write(path, data):
+    rm_tempfile()
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
@@ -71,9 +71,12 @@ def read(path):
 
 
 def rm_tempfile():
-    tempfile_list = glob.glob(os.path.join(settings.DB_DIR, "fake_useragent_*"))
-    for i in tempfile_list:
-        os.remove(i)
+    tempfile_list = settings.TEMP_FILE
+    if tempfile_list:
+        for i in tempfile_list:
+            os.remove(i)
+    else:
+        return
 
 
 def random_choose(browser, data):
@@ -98,8 +101,8 @@ async def main(browser=None, use_tempfile=True):
         if browser not in list(settings.BROWSERS.keys()):
             raise FakeUserAgentError("This browser is not supported.")
 
-    if os.path.isfile(settings.DB):
-        data = read(settings.DB)
+    if settings.TEMP_FILE:
+        data = read(settings.TEMP_FILE[-1])
         return random_choose(browser, data)
 
     else:

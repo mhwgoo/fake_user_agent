@@ -1,5 +1,7 @@
 """setting static data"""
+
 import os
+import glob
 import tempfile
 
 from fake_user_agent import __version__
@@ -9,7 +11,7 @@ DB = os.path.join(
     tempfile.gettempdir(), "fake_useragent_{version}.json".format(version=__version__)
 )
 
-DB_DIR = tempfile.gettempdir()
+TEMP_FILE = glob.glob(os.path.join(tempfile.gettempdir(), "fake_useragent_*"))
 
 BROWSERS_STATS_PAGE = "https://www.w3schools.com/browsers/default.asp"
 
