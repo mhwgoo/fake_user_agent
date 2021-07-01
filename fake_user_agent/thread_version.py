@@ -97,9 +97,13 @@ def read(path):
         return json.loads(data)
 
 
+def rm_tempfile():
+    os.remove(settings.DB)
+
+
 def random_choose(browser, data):
     if browser:
-        print(random.choice(data[browser]))
+        return random.choice(data[browser])
 
     else:
         browser = random.choices(
@@ -107,10 +111,10 @@ def random_choose(browser, data):
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
-        print(random.choice(data[browser]))
+        return random.choice(data[browser])
 
 
-def main(browser):
+def user_agent(browser=None, use_tempfile=True):
     if browser:
         if not isinstance(browser, str):
             raise FakeUserAgentError("Please input a valid browser name")
@@ -121,14 +125,15 @@ def main(browser):
 
     if os.path.isfile(settings.DB):
         data = read(settings.DB)
-        random_choose(browser, data)
+        return random_choose(browser, data)
 
     else:
         load()
-        random_choose(browser, all_versions)
-        write(settings.DB, all_versions)
+        if use_tempfile:
+            write(settings.DB, all_versions)
+        return random_choose(browser, all_versions)
 
 
 if __name__ == "__main__":
     browser = input("Input a browser name or hit <enter> not to specify browser: ")
-    main(browser=browser)
+    print(user_agent(browser=browser, use_tempfile=True))

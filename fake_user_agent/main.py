@@ -113,7 +113,7 @@ async def main(browser=None, use_tempfile=True):
 # Get user agent from terminal
 def get_input():
     browser = input("Input a browser name or hit <enter> not to specify browser: ")
-    print(asyncio.run(main(browser=browser)))
+    print(asyncio.run(main(browser=browser, use_tempfile=True)))
 
 
 # Get user agent by script import

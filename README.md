@@ -28,6 +28,13 @@ ua = user_agent(use_temfile=False)
 # If there is an async function needing a useragent in your script, 
 # don't put `user_agent()` in your async function, put it above instead. 
 
+
+# You can also import multithreading version offered.
+# Time taken is no big difference with the default asyncio version.
+# All usages are same, except that `user_agent()` can be put within an async function. 
+from fake_user_agent.thread_version import user_agent
+
+
 # Remove tempfile
 rm_tempfile()
 ```
