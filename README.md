@@ -25,7 +25,8 @@ ua = user_agent("chrome")
 # By default tempfile is used, you can turn it off by:
 ua = user_agent(use_temfile=False)
 
-# If there is an async function needing a useragent in your script, don't put `user_agent()` in your async function, put it above  
+# If there is an async function needing a useragent in your script, 
+# don't put `user_agent()` in your async function, put it above instead. 
 
 # Remove tempfile
 rm_tempfile()
