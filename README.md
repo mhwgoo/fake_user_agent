@@ -11,7 +11,6 @@ On your terminal, enter `fakeua`
 
 In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
 
-Note: Don't put `user_agent()` in your async function, put it above the async function needing a useragent. That is because python `asyncio.run()` cannot be called when another asyncio event loop is running in the same thread.
 ```python
 from fake_user_agent.main import user_agent
 
@@ -25,6 +24,8 @@ ua = user_agent("chrome")
 # Not using it takes less than 3s because of fetching data on the web each time.
 # By default tempfile is used, you can turn it off by:
 ua = user_agent(use_temfile=False)
+
+# If there is an async function needing a useragent in your script, don't put `user_agent()` in your async function, put it above  
 
 # Remove tempfile
 rm_tempfile()
