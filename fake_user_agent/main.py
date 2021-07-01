@@ -1,5 +1,6 @@
 """Main script to randomly generate a fake useragent using asyncio"""
 import os
+import glob
 import json
 import random
 import time
@@ -70,7 +71,9 @@ def read(path):
 
 
 def rm_tempfile():
-    os.remove(settings.DB)
+    tempfile_list = glob.glob(os.path.join(settings.DB_DIR, "fake_useragent_*"))
+    for i in tempfile_list:
+        os.remove(i)
 
 
 def random_choose(browser, data):

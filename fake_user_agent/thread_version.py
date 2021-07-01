@@ -1,5 +1,6 @@
 """Generate fake useragent using threading. This is only for offering another solution. Not actually called in the published pkg"""
 import os
+import glob
 import json
 import random
 from time import sleep
@@ -12,9 +13,6 @@ from collections import defaultdict
 
 from lxml import etree
 
-from fake_user_agent import settings
-from fake_user_agent.log import logger
-from fake_user_agent.errors import FakeUserAgentError
 
 all_versions = defaultdict(list)
 
@@ -98,7 +96,9 @@ def read(path):
 
 
 def rm_tempfile():
-    os.remove(settings.DB)
+    tempfile_list = glob.glob(os.path.join(settings.DB_DIR, "fake_useragent_*"))
+    for i in tempfile_list:
+        os.remove(i)
 
 
 def random_choose(browser, data):
@@ -135,5 +135,15 @@ def user_agent(browser=None, use_tempfile=True):
 
 
 if __name__ == "__main__":
+    import settings
+    from log import logger
+    from errors import FakeUserAgentError
+
     browser = input("Input a browser name or hit <enter> not to specify browser: ")
     print(user_agent(browser=browser, use_tempfile=True))
+
+
+else:
+    from fake_user_agent import settings
+    from fake_user_agent.log import logger
+    from fake_user_agent.errors import FakeUserAgentError

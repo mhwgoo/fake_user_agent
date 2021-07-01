@@ -9,10 +9,7 @@ DB = os.path.join(
     tempfile.gettempdir(), "fake_useragent_{version}.json".format(version=__version__)
 )
 
-
-CACHE_SERVER = "https://fake-useragent.herokuapp.com/browsers/{version}".format(  # noqa
-    version=__version__,
-)
+DB_DIR = tempfile.gettempdir()
 
 BROWSERS_STATS_PAGE = "https://www.w3schools.com/browsers/default.asp"
 
