@@ -20,39 +20,38 @@ def fetch(url):
     attempt = 0
     while True:
         with requests.Session() as s:
-            attempt += 1
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
             }
             s.headers.update(headers)
-
+            if attempt == settings.HTTP_RETRIES:
+                raise FakeUserAgentError("Maximum amount of retries reached")
             try:
                 r = s.get(url, timeout=settings.HTTP_TIMEOUT)
+                attempt += 1
             except exceptions.SSLError:
                 r = s.get(url, timeout=settings.HTTP_TIMEOUT, verify=False)
                 return r.text
             except exceptions.ConnectTimeout:
-                logger.error("Error occurred during fetching %s", url)
-
-                if attempt == settings.HTTP_RETRIES:
-                    raise FakeUserAgentError("Maximum amount of retries reached")
-                else:
-                    logger.debug("Sleeping for %s seconds", settings.HTTP_DELAY)
-                    sleep(settings.HTTP_DELAY)
+                logger.error("Timed out during fetching %s. Retrying...", url)
+                sleep(settings.HTTP_DELAY)
+            except requests.exceptions.ConnectionError:
+                logger.error("%s terminated connection. Retrying...", url)
+                sleep(settings.HTTP_DELAY)
             except Exception:
                 logger.exception("Error occurred during fetching %s", url)
-
             else:
                 return r.text
 
 
 def parse(browser):
     html_str = fetch(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)))
-    lxml_element = etree.HTML(html_str)
-    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-        : settings.BROWSERS_COUNT_LIMIT
-    ]
-    all_versions[browser].extend(versions)
+    if html_str:
+        lxml_element = etree.HTML(html_str)
+        versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
+            : settings.BROWSERS_COUNT_LIMIT
+        ]
+        all_versions[browser].extend(versions)
 
 
 def load():
