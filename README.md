@@ -5,12 +5,13 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
   - taking advantage of `Xpath` to improve parsing speed
   - changing random choice algorithm to improve random choice speed
 
+Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name is case insensitive. Some other possible spellings of each browser are mapped to the right one (e.g. "ie" -> "edge", "google" -> "chrome").
+
 # Usage
 On your terminal, enter `fakeua`
 ![](/screenshots/browser.png)
 
 In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
-
 ```python
 from fake_user_agent.main import user_agent
 
@@ -38,7 +39,6 @@ from fake_user_agent.thread_version import user_agent
 # Remove tempfile
 rm_tempfile()
 ```
-
 Remove tempfile with terminal command on Linux or MacOS. Replace `var` with respective folder name on Windows
 ```bash
 find /var/ -name "fake_useragent*" -type f -exec rm {} \;
