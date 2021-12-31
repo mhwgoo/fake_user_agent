@@ -83,9 +83,11 @@ def load_by_threadpool(use_cache_server=True):
 
 def write(path, data):
     rm_tempfile()
+    global TEMP_FILE
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
+    TEMP_FILE = settings.TEMP_FILE
 
 
 def read(path):
@@ -95,10 +97,11 @@ def read(path):
 
 
 def rm_tempfile():
-    tempfile_list = settings.TEMP_FILE
-    if tempfile_list:
-        for i in tempfile_list:
+    global TEMP_FILE
+    if TEMP_FILE:
+        for i in TEMP_FILE:
             os.remove(i)
+            TEMP_FILE = []
     else:
         return
 
@@ -125,8 +128,8 @@ def user_agent(browser=None, use_tempfile=True):
         if browser not in list(settings.BROWSERS.keys()):
             raise FakeUserAgentError("This browser is not supported.")
 
-    if settings.TEMP_FILE:
-        data = read(settings.TEMP_FILE[-1])
+    if TEMP_FILE:
+        data = read(TEMP_FILE[-1])
         return random_choose(browser, data)
 
     else:
@@ -141,6 +144,8 @@ if __name__ == "__main__":
     from log import logger
     from errors import FakeUserAgentError
 
+    TEMP_FILE = settings.TEMP_FILE # TMEP_FILE is a list
+
     browser = input("Input a browser name or hit <enter> not to specify browser: ")
     print(user_agent(browser=browser, use_tempfile=True))
 
@@ -149,3 +154,5 @@ else:
     from fake_user_agent import settings
     from fake_user_agent.log import logger
     from fake_user_agent.errors import FakeUserAgentError
+
+    TEMP_FILE = settings.TEMP_FILE # TMEP_FILE is a list

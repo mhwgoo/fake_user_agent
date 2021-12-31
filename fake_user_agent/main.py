@@ -20,6 +20,7 @@ from fake_user_agent.errors import FakeUserAgentError
 
 all_versions = defaultdict(list)
 
+TEMP_FILE = settings.TEMP_FILE # TMEP_FILE is a list
 
 async def fetch(url, session):
     attempt = 0
@@ -39,9 +40,6 @@ async def fetch(url, session):
                 result = await resp.text()
         except asyncio.TimeoutError:
             logger.error("Timed out during fetching %s. Retrying...", url)
-            sleep(settings.HTTP_DELAY)
-        except aiohttp.client_exceptions.ClientOSError:
-            logger.error("%s terminated connection. Retrying...", url)
             sleep(settings.HTTP_DELAY)
         except Exception:
             logger.exception("Error occurred during fetching %s.", url)
@@ -64,9 +62,11 @@ async def parse(browser, session):
 
 def write(path, data):
     rm_tempfile()
+    global TEMP_FILE
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
+    TEMP_FILE = settings.TEMP_FILE
 
 
 def read(path):
@@ -76,10 +76,11 @@ def read(path):
 
 
 def rm_tempfile():
-    tempfile_list = settings.TEMP_FILE
-    if tempfile_list:
-        for i in tempfile_list:
+    global TEMP_FILE
+    if TEMP_FILE:
+        for i in TEMP_FILE:
             os.remove(i)
+            TEMP_FILE = []
     else:
         return
 
@@ -106,8 +107,8 @@ async def main(browser=None, use_tempfile=True):
         if browser not in list(settings.BROWSERS.keys()):
             raise FakeUserAgentError("This browser is not supported.")
 
-    if settings.TEMP_FILE:
-        data = read(settings.TEMP_FILE[-1])
+    if TEMP_FILE:
+        data = read(TEMP_FILE[-1])
         return random_choose(browser, data)
 
     else:

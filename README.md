@@ -47,5 +47,6 @@ sudo find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
 
 # Installation
 ```python
-pip install fake_user_agent
+pip3 install fake_user_agent
+sudo pip3 install fake_user_agent # For Linux
 ```
