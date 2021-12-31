@@ -21,18 +21,18 @@ ua = user_agent()
 # Specify a browser to randomly choose from:
 ua = user_agent("chrome")
 
-# Using tempfile takes less than 0.001s from the second time. 
+# Using tempfile takes less than 0.001s from the second time.
 # Not using it takes less than 3s because of fetching data on the web each time.
 # By default tempfile is used, you can turn it off by:
 ua = user_agent(use_temfile=False)
 
-# If there is an async function needing a useragent in your script, 
-# don't put `user_agent()` in your async function, put it above instead. 
+# If there is an async function needing a useragent in your script,
+# don't put `user_agent()` in your async function, put it above instead.
 
 
 # You can also import multithreading version offered.
 # Time taken is no big difference with the default asyncio version.
-# All usages are same, except that `user_agent()` can be put within an async function. 
+# All usages are same, except that `user_agent()` can be put within an async function.
 from fake_user_agent.thread_version import user_agent
 
 
@@ -41,11 +41,11 @@ rm_tempfile()
 ```
 Remove tempfile with terminal command on Linux or MacOS. Replace `var` with respective folder name on Windows
 ```bash
-find /var/ -name "fake_useragent*" -type f -exec rm {} \;
+find /var/ -name "fake_useragent*" -type f -exec rm {} \; # For MacOS
+sudo find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
 ```
 
 # Installation
 ```python
 pip install fake_user_agent
 ```
-

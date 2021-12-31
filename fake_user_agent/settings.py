@@ -8,12 +8,6 @@ import glob
 
 from fake_user_agent import __version__
 
-
-DB = os.path.join(
-    tempfile.gettempdir(), "fake_useragent_{version}.json".format(version=__version__)
-)
-
-
 def find_tempfile(dir):
     temp = []
     for root, dirs, files in os.walk(dir):
@@ -24,9 +18,17 @@ def find_tempfile(dir):
 
 
 if platform.system() == "Windows":
-    TEMP_FILE = find_tempfile(tempfile.gettempdir())
+    TEMP_DIR = tempfile.gettempdir()   # Cahe temp dir value in case different results happended before and after TEMP_FILE is retrived
+    DB = os.path.join(
+        TEMP_DIR, "fake_useragent_{version}.json".format(version=__version__)
+    )
+    TEMP_FILE = find_tempfile(TEMP_DIR)
 else:
-    TEMP_FILE = glob.glob(os.path.join(tempfile.gettempdir(), "fake_useragent_*"))
+    TEMP_DIR = tempfile.gettempdir()
+    DB = os.path.join(
+        TEMP_DIR, "fake_useragent_{version}.json".format(version=__version__)
+    )
+    TEMP_FILE = glob.glob(os.path.join(TEMP_DIR, "fake_useragent_*"))
 
 
 BROWSER_BASE_PAGE = (
