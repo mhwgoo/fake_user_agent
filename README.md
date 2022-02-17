@@ -38,12 +38,12 @@ from fake_user_agent.thread_version import user_agent
 
 # Remove tempfile
 from fake_user_agent.main import rm_tempfile
-rm_tempfile()  # For Linux, should add "sudo" in front of python3 when executing script with this function
+rm_tempfile()  # Linux: may need to "sudo" python3 when executing script with this function
 ```
 Remove tempfile with terminal command on Linux or MacOS. Replace `var` with respective folder name on Windows
 ```bash
 find /var/ -name "fake_useragent*" -type f -exec rm {} \; # For MacOS
-sudo find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
+find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
 ```
 
 # Installation
