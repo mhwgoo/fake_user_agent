@@ -1,5 +1,6 @@
 """Generate fake useragent using threading. This is only for offering another solution. Not actually called in the published pkg"""
 import os
+# import sys
 import json
 import random
 from time import sleep
@@ -12,6 +13,7 @@ from collections import defaultdict
 
 from lxml import etree
 
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 all_versions = defaultdict(list)
 
@@ -143,10 +145,11 @@ if __name__ == "__main__":
     import settings
     from log import logger
     from errors import FakeUserAgentError
+    from parse import get_browser_input
 
     TEMP_FILE = settings.TEMP_FILE # TMEP_FILE is a list
 
-    browser = input("Input a browser name or hit <enter> not to specify browser: ")
+    browser = get_browser_input()
     print(user_agent(browser=browser, use_tempfile=True))
 
 

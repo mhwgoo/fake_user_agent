@@ -3,6 +3,7 @@ import os
 import json
 import random
 import time
+# import sys
 from time import sleep
 from urllib.parse import quote_plus
 from collections import defaultdict
@@ -16,6 +17,7 @@ from lxml import etree
 from fake_user_agent import settings
 from fake_user_agent.log import logger
 from fake_user_agent.errors import FakeUserAgentError
+from fake_user_agent.parse import get_browser_input
 
 
 all_versions = defaultdict(list)
@@ -58,7 +60,6 @@ async def parse(browser, session):
             : settings.BROWSERS_COUNT_LIMIT
         ]
         all_versions[browser].extend(versions)
-
 
 def write(path, data):
     rm_tempfile()
@@ -124,7 +125,8 @@ async def main(browser=None, use_tempfile=True):
 
 # Get user agent from terminal
 def get_input():
-    browser = input("Input a browser name or hit <enter> not to specify browser: ")
+    browser = get_browser_input()
+    # browser = input("Input a browser name or hit <enter> not to specify browser: ")
     print(asyncio.run(main(browser=browser, use_tempfile=True)))
 
 
