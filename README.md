@@ -9,7 +9,7 @@ Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name i
 
 # Usage
 On your terminal, enter `fakeua`
-![](/screenshots/browser.png)
+![](/screenshots/new.png)
 
 In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
 ```python
@@ -48,6 +48,5 @@ sudo find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
 
 # Installation
 ```python
-pip3 install fake_user_agent
-sudo pip3 install fake_user_agent # For Linux
+pip install fake_user_agent
 ```
