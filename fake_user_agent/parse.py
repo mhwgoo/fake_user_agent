@@ -1,7 +1,8 @@
 import argparse
 
 def parse_args():
-    """Get the arguments from command line"""
+    """Get the arguments from command line."""
+
     parser = argparse.ArgumentParser(
         description="fakeua is a tool to generate a fake useragent randomly."
     )

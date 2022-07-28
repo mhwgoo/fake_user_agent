@@ -11,7 +11,7 @@ Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name i
 On your terminal, enter `fakeua`
 ![](/screenshots/new.png)
 
-In python script, just import the function. Every time you run your python script, the user agent is randomly chosen, so each time the value is different.
+In python script, just import the function. Every time you run your python script, the user agent value is different.
 ```python
 from fake_user_agent.main import user_agent
 
@@ -21,26 +21,21 @@ ua = user_agent()
 # Specify a browser to randomly choose from:
 ua = user_agent("chrome")
 
-# Using tempfile takes less than 0.001s from the second time.
-# Not using it takes less than 3s because of fetching data on the web each time.
-# By default tempfile is used, you can turn it off by:
+# It usually takes less than 2s for the first run, including the time for fetching web and parsing html. 
+# Using tempfile, it takes less than 0.01s from the second time.
+# By default, tempfile is used, you can turn it off and it will take less than 2s each run:
 ua = user_agent(use_tempfile=False)
 
 # If there is an async function needing a useragent in your script,
 # don't put `user_agent()` in your async function, put it above instead.
 
-
-# You can also import multithreading version offered.
-# Time taken is no big difference with the default asyncio version.
-# All usages are same, except that `user_agent()` can be put within an async function.
-from fake_user_agent.thread_version import user_agent
-
-
-# Remove tempfile
+# Remove tempfile in python script. 
+# May need sudo python yourscript.py for Linux
 from fake_user_agent.main import rm_tempfile
-rm_tempfile()  # Linux: may need to "sudo" python3 when executing script with this function
+rm_tempfile()  
 ```
-Remove tempfile with terminal command on Linux or MacOS. Replace `var` with respective folder name on Windows
+
+Remove tempfile on Linux or MacOS terminal. Replace `var` with respective folder name on Windows
 ```bash
 find /var/ -name "fake_useragent*" -type f -exec rm {} \; # For MacOS
 find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux

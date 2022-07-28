@@ -1,29 +1,26 @@
-"""Main script to randomly generate a fake useragent using asyncio"""
+"""Main script to randomly generate a fake useragent."""
+
 import os
 import json
 import random
 import sys
+import time
+import logging
 from urllib.parse import quote_plus
 from collections import defaultdict
 from lxml import etree
+from functools import wraps
+
 # for asynchronous programming
 import asyncio
 from aiohttp import ClientSession
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from fake_user_agent import settings
-from fake_user_agent.log import logger
-from fake_user_agent.errors import FakeUserAgentError
-from fake_user_agent.parse import get_browser_input
-
 all_versions = defaultdict(list) # a dict created with its values being list
-
 OP = ["FETCHING", "PARSING"]
-TEMP_FILE = settings.TEMP_FILE 
 
-# Fetch html text file using aiohttp session.
 async def fetch(url, session):
+    """Fetch html text file using aiohttp session."""
+
     attempt = 0 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"}
 
@@ -36,12 +33,12 @@ async def fetch(url, session):
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[0])
         else:
-            if result.status != 200:  # only a 200 response has a response body
-                attempt = call_on_error(result.status, url, attempt, OP[0])
+            logger.debug(f"{url} has been fetched successfully.")
             return result
 
-# Retry mechanism
 def call_on_error(error, url, attempt, op):
+    """Retry mechanism when an error occurs."""
+
     attempt += 1
     logger.debug(
         "%s HTML from %s %d times",
@@ -55,80 +52,143 @@ def call_on_error(error, url, attempt, op):
         sys.exit()
     return attempt
 
-# Parse out a browser's versions 
 async def parse(browser, session):
+    """Parse out a browser's versions.""" 
+
     html_str = await fetch(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session)
     lxml_element = etree.HTML(html_str)
     versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[: settings.BROWSERS_COUNT_LIMIT]
+    logger.debug(f"{browser} has been parsed successfully.")
     return versions
 
-# Write versions to the `all_versions` dict {browser:versions}.
 async def write_to_dict(browser, session):
+    """Write versions to the `all_versions` dict {browser:versions}."""
+
     global all_versions
     versions = await parse(browser, session)
     all_versions[browser].extend(versions) # add each element of versions list to the end of the list to be extended 
+    logger.debug(f"{browser} versions has been written to all_versions.")
 
 def write(path, data):
+    """Write a json tempfile as cache if there isn't one, or update it if any. """
+
     rm_tempfile()
+
     global TEMP_FILE
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
     TEMP_FILE = settings.TEMP_FILE
+    logger.debug(f"Cache has been stored in {path}")
 
-# Read from a json file into a python object. Here the object is a dict.
 def read(path):
+    """Read from a json file into a python object. Here the object is a dict."""
+
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
-        return json.loads(cache_data)
+
+    logger.debug(f"Read {path} successfully")
+    return json.loads(cache_data)
 
 def rm_tempfile():
-    global TEMP_FILE
-    if TEMP_FILE is None:
-        return
-    os.remove(TEMP_FILE)
+    """Remove the tempfile as cache if any."""
 
-# If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS.
+    global TEMP_FILE
+    if not TEMP_FILE:
+        return
+
+    os.remove(TEMP_FILE)
+    logger.info(f"{TEMP_FILE} has been removed successfully.")
+
 def get_browser(browser):
-    if browse is None:
+    """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
+
+    if not browser:
+        logger.debug(f"A browser will be randowly given.")
         browser = random.choices(
             list(settings.BROWSERS.keys()),
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
-        return random.choice(data[browser])
+
     else:
+        logger.debug(f"{browser} will be formatted.")
         if not isinstance(browser, str):
             raise FakeUserAgentError("Browser name must be string")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
-        if browser not in list(settings.BROWSERS.keys()): # transform a generator to a list
+        if browser not in list(settings.BROWSERS.keys()): # transform an iterator to a list
             raise FakeUserAgentError(f"{browser} is not supported.")
+
+    return browser 
     
+
+# ----------main----------
+
+def timer(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_at = time.time()
+        f = func(*args, **kwargs)
+        time_taken = round((time.time() - start_at), 4)
+        print("Time taken: {} seconds".format(time_taken))
+        return f
+
+    return wrapper
+
 async def main(browser=None, use_tempfile=True):
     browser = get_browser(browser)
+    logger.debug(f"Got {browser}.")
 
     if not use_tempfile :
         async with ClientSession() as session:
             versions = await parse(browser, session)
             return random.choice(versions)
     else:
-        if TEMP_FILE is not None:
+        if TEMP_FILE:
             data = read(TEMP_FILE)
             return random.choice(data[browser])
         else:
             async with ClientSession() as session:
                 tasks = []
-                tasks.append(write_to_dict(browser, session))
+                for b in settings.BROWSERS.keys():
+                    tasks.append(write_to_dict(b, session))
                 await asyncio.gather(*tasks)
-                write(settings.DB, all_versions)
-                return random.choose(all_versions[browser])
 
-# Display a user agent on terminal.
+                write(settings.DB, all_versions)
+                return random.choice(all_versions[browser])
+
+@timer
 def get_input():
+    """Entry point for running fakeua binary on terminal."""
+
     browser = get_browser_input()
     print(asyncio.run(main(browser=browser, use_tempfile=True)))
 
-# Get a user agent by importing this function in a python script.
+@timer
 def user_agent(browser=None, use_tempfile=True):
+    """Entry point for getting a user agent by importing this function in a python script."""
+
     return asyncio.run(main(browser, use_tempfile))
+
+
+if __name__ == "__main__":
+    import settings
+    import log
+    from errors import FakeUserAgentError
+    from parse import get_browser_input
+
+    logger = logging.getLogger(__name__)
+
+    TEMP_FILE = settings.TEMP_FILE
+    get_input()
+
+else:
+    from . import settings
+    from . import log
+    from .errors import FakeUserAgentError
+    from .parse import get_browser_input
+
+    logger = logging.getLogger(__name__)
+
+    TEMP_FILE = settings.TEMP_FILE
