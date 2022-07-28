@@ -2,15 +2,13 @@
 import os
 import json
 import random
-import time
-# import sys
-from time import sleep
+import sys
 from urllib.parse import quote_plus
 from collections import defaultdict
-import asyncio
-import aiohttp
-from aiohttp import ClientSession
 from lxml import etree
+# for asynchronous programming
+import asyncio
+from aiohttp import ClientSession
 
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,47 +17,56 @@ from fake_user_agent.log import logger
 from fake_user_agent.errors import FakeUserAgentError
 from fake_user_agent.parse import get_browser_input
 
+all_versions = defaultdict(list) # a dict created with its values being list
 
-all_versions = defaultdict(list)
+OP = ["FETCHING", "PARSING"]
+TEMP_FILE = settings.TEMP_FILE 
 
-TEMP_FILE = settings.TEMP_FILE # TMEP_FILE is a list
-
+# Fetch html text file using aiohttp session.
 async def fetch(url, session):
-    attempt = 0
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-    }
+    attempt = 0 
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"}
 
     while True:
-        if attempt == settings.HTTP_RETRIES:
-            raise FakeUserAgentError("Maximum amount of retries reached")
-
         try:
-            async with session.get(
-                url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False
-            ) as resp:
-                attempt += 1
+            async with session.get(url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False) as resp:
                 result = await resp.text()
-        except asyncio.TimeoutError:
-            logger.error("Timed out during fetching %s. Retrying...", url)
-            sleep(settings.HTTP_DELAY)
-        except Exception:
-            logger.exception("Error occurred during fetching %s.", url)
+        except asyncio.TimeoutError as e:
+            attempt = call_on_error(e, url, attempt, OP[0])
+        except Exception as e:
+            attempt = call_on_error(e, url, attempt, OP[0])
         else:
+            if result.status != 200:  # only a 200 response has a response body
+                attempt = call_on_error(result.status, url, attempt, OP[0])
             return result
 
-
-async def parse(browser, session):
-    global all_versions
-    html_str = await fetch(
-        settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session
+# Retry mechanism
+def call_on_error(error, url, attempt, op):
+    attempt += 1
+    logger.debug(
+        "%s HTML from %s %d times",
+        op,
+        url,
+        attempt,
     )
-    if html_str:
-        lxml_element = etree.HTML(html_str)
-        versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-            : settings.BROWSERS_COUNT_LIMIT
-        ]
-        all_versions[browser].extend(versions)
+    if attempt == 3:
+        logger.debug("Maximum %s retries reached. Exit", op)
+        logger.error(str(error))
+        sys.exit()
+    return attempt
+
+# Parse out a browser's versions 
+async def parse(browser, session):
+    html_str = await fetch(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session)
+    lxml_element = etree.HTML(html_str)
+    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[: settings.BROWSERS_COUNT_LIMIT]
+    return versions
+
+# Write versions to the `all_versions` dict {browser:versions}.
+async def write_to_dict(browser, session):
+    global all_versions
+    versions = await parse(browser, session)
+    all_versions[browser].extend(versions) # add each element of versions list to the end of the list to be extended 
 
 def write(path, data):
     rm_tempfile()
@@ -69,67 +76,59 @@ def write(path, data):
         f.write(dumped)
     TEMP_FILE = settings.TEMP_FILE
 
-
+# Read from a json file into a python object. Here the object is a dict.
 def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
         return json.loads(cache_data)
 
-
 def rm_tempfile():
     global TEMP_FILE
-    if TEMP_FILE:
-        for i in TEMP_FILE:
-            os.remove(i)
-            TEMP_FILE = []
-    else:
+    if TEMP_FILE is None:
         return
+    os.remove(TEMP_FILE)
 
-
-def random_choose(browser, data):
-    if browser:
-        return random.choice(data[browser])
-
-    else:
+# If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS.
+def get_browser(browser):
+    if browse is None:
         browser = random.choices(
             list(settings.BROWSERS.keys()),
             weights=list(settings.BROWSERS.values()),
             k=1,
         )[0]
         return random.choice(data[browser])
-
-
-async def main(browser=None, use_tempfile=True):
-    if browser:
+    else:
         if not isinstance(browser, str):
-            raise FakeUserAgentError("Please give a valid browser name")
+            raise FakeUserAgentError("Browser name must be string")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
-        if browser not in list(settings.BROWSERS.keys()):
-            raise FakeUserAgentError("This browser is not supported.")
+        if browser not in list(settings.BROWSERS.keys()): # transform a generator to a list
+            raise FakeUserAgentError(f"{browser} is not supported.")
+    
+async def main(browser=None, use_tempfile=True):
+    browser = get_browser(browser)
 
-    if TEMP_FILE:
-        data = read(TEMP_FILE[-1])
-        return random_choose(browser, data)
-
-    else:
+    if not use_tempfile :
         async with ClientSession() as session:
-            tasks = []
-            for BROWSER in settings.BROWSERS.keys():
-                tasks.append(parse(BROWSER, session))
-            await asyncio.gather(*tasks)
-            if use_tempfile:
+            versions = await parse(browser, session)
+            return random.choice(versions)
+    else:
+        if TEMP_FILE is not None:
+            data = read(TEMP_FILE)
+            return random.choice(data[browser])
+        else:
+            async with ClientSession() as session:
+                tasks = []
+                tasks.append(write_to_dict(browser, session))
+                await asyncio.gather(*tasks)
                 write(settings.DB, all_versions)
-            return random_choose(browser, all_versions)
+                return random.choose(all_versions[browser])
 
-
-# Get user agent from terminal
+# Display a user agent on terminal.
 def get_input():
     browser = get_browser_input()
-    # browser = input("Input a browser name or hit <enter> not to specify browser: ")
     print(asyncio.run(main(browser=browser, use_tempfile=True)))
 
-
-# Get user agent by script import
+# Get a user agent by importing this function in a python script.
 def user_agent(browser=None, use_tempfile=True):
     return asyncio.run(main(browser, use_tempfile))
