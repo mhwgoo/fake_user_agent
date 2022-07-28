@@ -21,9 +21,9 @@ ua = user_agent()
 # Specify a browser to randomly choose from:
 ua = user_agent("chrome")
 
-# It usually takes less than 2s for the first run, including the time for fetching web and parsing html. 
-# Using tempfile, it takes less than 0.01s from the second time.
-# By default, tempfile is used, you can turn it off and it will take less than 2s each run:
+# It usually takes < 2s for the first run, including the time for fetching and parsing. 
+# Using tempfile, it takes < 0.01s from the second time.
+# By default, tempfile is used, it can be turned off and it will take < 2s to run:
 ua = user_agent(use_tempfile=False)
 
 # If there is an async function needing a useragent in your script,

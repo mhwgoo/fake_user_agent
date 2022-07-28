@@ -99,6 +99,7 @@ def rm_tempfile():
 
     os.remove(TEMP_FILE)
     logger.info(f"{TEMP_FILE} has been removed successfully.")
+    TEMP_FILE = settings.TEMP_FILE
 
 def get_browser(browser):
     """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
@@ -165,7 +166,7 @@ def get_input():
     browser = get_browser_input()
     print(asyncio.run(main(browser=browser, use_tempfile=True)))
 
-@timer
+# @timer
 def user_agent(browser=None, use_tempfile=True):
     """Entry point for getting a user agent by importing this function in a python script."""
 
