@@ -174,7 +174,7 @@ def get_input():
 
     try:
         if args.version:
-            print("fake_user_agent " + settings.__version__)
+            print("fake_user_agent " + settings.version)
             sys.exit()
 
         if args.remove:

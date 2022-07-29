@@ -5,8 +5,9 @@ import re
 import tempfile
 import logging
 
-from __init__ import __version__
 import log
+
+version = "2.0.0" 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -26,7 +27,7 @@ def find_tempfile(dir):
 
 TEMP_FILE = find_tempfile(TEMP_DIR)
 
-DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=__version__)) # str type
+DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=version)) # str type
 
 BROWSER_BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
 
