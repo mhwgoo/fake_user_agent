@@ -15,9 +15,6 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 all_versions = defaultdict(list) # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
@@ -194,7 +191,7 @@ def get_input():
             sys.exit()
 
         if args.debug:
-            logger.setLevel(logging.DEBUG)
+            logging.getLogger(__package__).setLevel(logging.DEBUG)
             
         browser = args.browser
         
@@ -214,7 +211,7 @@ def user_agent(browser=None, use_tempfile=True):
 
 if __name__ == "__main__":
     import settings
-    import log
+    from log import logger
     from errors import FakeUserAgentError
     from parse import parse_args
 
@@ -224,7 +221,7 @@ if __name__ == "__main__":
 
 else:
     from . import settings
-    from . import log
+    from .log import logger
     from .errors import FakeUserAgentError
     from .parse import parse_args
 

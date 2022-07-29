@@ -5,12 +5,9 @@ import re
 import tempfile
 import logging
 
-from . import log
+from .log import logger
 
-version = "2.0.5" 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+version = "2.0.6" 
 
 TEMP_DIR = tempfile.gettempdir()   # str type
 
