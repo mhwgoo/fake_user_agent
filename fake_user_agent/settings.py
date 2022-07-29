@@ -7,7 +7,7 @@ import logging
 
 from .log import logger
 
-version = "2.0.6" 
+version = "2.0.7" 
 
 TEMP_DIR = tempfile.gettempdir()   # str type
 
@@ -22,7 +22,7 @@ def find_tempfile(dir):
     logger.debug("No cache is found.")
     return "" 
 
-TEMP_FILE = find_tempfile(TEMP_DIR)
+# TEMP_FILE = find_tempfile(TEMP_DIR)
 
 DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=version)) # str type
 

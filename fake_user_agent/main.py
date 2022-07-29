@@ -19,6 +19,8 @@ all_versions = defaultdict(list) # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
 
+TEMP_FILE = ""
+
 async def fetch(url, session):
     """Fetch html text file using aiohttp session."""
 
@@ -85,12 +87,13 @@ async def write_to_dict(browser, session):
 def write(path, data):
     """Write a json tempfile as cache if there isn't one, or update it if any. """
     
-    global TEMP_FILE
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
 
     logger.debug(f"Cache has been stored in {path}.\n")
+
+    global TEMP_FILE
     TEMP_FILE = path
 
 def read(path):
@@ -105,16 +108,17 @@ def read(path):
 def rm_tempfile():
     """Remove the tempfile as cache if any."""
 
-    global TEMP_FILE
-    if not TEMP_FILE:
+    tempfile = settings.find_tempfile(settings.TEMP_DIR)
+    if not tempfile:
         print("No tempfile found to be deleted.")
         return
 
-    os.remove(TEMP_FILE)
+    os.remove(tempfile)
     
-    file_name = TEMP_FILE.split("/")[-1]
+    file_name = tempfile.split("/")[-1]
     print(f"{file_name} has been removed successfully.")
 
+    global TEMP_FILE
     TEMP_FILE = ""     
 
 def get_browser(browser):
@@ -162,6 +166,10 @@ async def main(browser=None, use_tempfile=True):
             versions = await parse(browser, session)
             return random.choice(versions)
     else:
+        tempfile = settings.find_tempfile(settings.TEMP_DIR)
+        global TEMP_FILE
+        TEMP_FILE = tempfile
+
         if TEMP_FILE:
             data = read(TEMP_FILE)
             return random.choice(data[browser])
@@ -215,7 +223,6 @@ if __name__ == "__main__":
     from errors import FakeUserAgentError
     from parse import parse_args
 
-    TEMP_FILE = settings.TEMP_FILE
     get_input()
    
 
@@ -225,5 +232,4 @@ else:
     from .errors import FakeUserAgentError
     from .parse import parse_args
 
-    TEMP_FILE = settings.TEMP_FILE
 
