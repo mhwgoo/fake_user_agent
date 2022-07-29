@@ -19,7 +19,7 @@ all_versions = defaultdict(list) # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
 
-TEMP_FILE = ""
+TEMP_FILE = ""  # if `TEMP_FILE` is imported from settings.py, later logger level change won't affect `find_tempfile` that has been run immediately after importing
 
 async def fetch(url, session):
     """Fetch html text file using aiohttp session."""

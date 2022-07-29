@@ -22,8 +22,6 @@ def find_tempfile(dir):
     logger.debug("No cache is found.")
     return "" 
 
-# TEMP_FILE = find_tempfile(TEMP_DIR)
-
 DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=version)) # str type
 
 BROWSER_BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
