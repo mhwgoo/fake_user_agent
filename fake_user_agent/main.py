@@ -193,8 +193,6 @@ def get_input():
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
- 
-@timer
 def user_agent(browser=None, use_tempfile=True):
     """Entry point for getting a user agent by importing this function in a python script."""
 
@@ -207,6 +205,7 @@ if __name__ == "__main__":
     from parse import parse_args
 
     TEMP_FILE = settings.TEMP_FILE
+    get_input()
 
 else:
     from . import settings
@@ -215,4 +214,3 @@ else:
 
     TEMP_FILE = settings.TEMP_FILE
 
-get_input()
