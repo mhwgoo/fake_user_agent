@@ -5,10 +5,11 @@ import re
 import tempfile
 import logging
 
-from fake_user_agent import __version__
+from __init__ import __version__
+import log
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.INFO)
 
 TEMP_DIR = tempfile.gettempdir()   # str type
 

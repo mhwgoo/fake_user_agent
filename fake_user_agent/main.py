@@ -15,6 +15,8 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 all_versions = defaultdict(list) # a dict created with its values being list
 
@@ -96,13 +98,14 @@ def rm_tempfile():
 
     global TEMP_FILE
     if not TEMP_FILE:
-        logger.info("No tempfile found to be deleted.")
+        print("No tempfile found to be deleted.")
         return
 
     os.remove(TEMP_FILE)
     
     file_name = TEMP_FILE.split("/")[-1]
-    logger.info(f"{file_name} has been removed successfully.")
+    print(f"{file_name} has been removed successfully.")
+
     TEMP_FILE = ""     
 
 def get_browser(browser):
@@ -180,7 +183,7 @@ def get_input():
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
-
+            
         browser = args.browser
 
         if args.nocache:
@@ -199,19 +202,19 @@ def user_agent(browser=None, use_tempfile=True):
 
 if __name__ == "__main__":
     import settings
+    import log
     from errors import FakeUserAgentError
     from parse import parse_args
 
-    logger = logging.getLogger(__name__)
-
     TEMP_FILE = settings.TEMP_FILE
     get_input()
+   
 
 else:
     from . import settings
+    from . import log
     from .errors import FakeUserAgentError
     from .parse import parse_args
 
-    logger = logging.getLogger(__name__)
     TEMP_FILE = settings.TEMP_FILE
 
