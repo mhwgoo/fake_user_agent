@@ -13,7 +13,7 @@ Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name i
 
 ### In your python script, just import the function. Every time you run the script, the useragent value will be different.
 ```python
-from fake_user_agent.main import user_agent
+from fake_user_agent import user_agent
 
 # Not specify a browser:
 ua = user_agent()
@@ -31,7 +31,7 @@ ua = user_agent(use_tempfile=False)
 
 # Remove tempfile in a python script. 
 # May need `sudo python yourscript.py` for Linux.
-from fake_user_agent.main import rm_tempfile
+from fake_user_agent import rm_tempfile
 rm_tempfile()  
 ```
 

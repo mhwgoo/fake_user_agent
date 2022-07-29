@@ -197,11 +197,13 @@ def get_input():
             logger.setLevel(logging.DEBUG)
             
         browser = args.browser
-
+        
+        print()
         if args.nocache:
             print(asyncio.run(main(browser=browser, use_tempfile=False)))
         else:
             print(asyncio.run(main(browser=browser, use_tempfile=True)))
+        print()
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
