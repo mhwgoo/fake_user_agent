@@ -6,7 +6,6 @@ import tempfile
 import logging
 
 from fake_user_agent import __version__
-from fake_user_agent import log 
 
 logger = logging.getLogger(__name__)
 
