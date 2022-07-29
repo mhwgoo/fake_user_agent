@@ -16,8 +16,6 @@ import asyncio
 from aiohttp import ClientSession
 
 
-logger = logging.getLogger(__name__)
-
 all_versions = defaultdict(list) # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
@@ -204,6 +202,8 @@ if __name__ == "__main__":
     from errors import FakeUserAgentError
     from parse import parse_args
 
+    logger = logging.getLogger(__name__)
+
     TEMP_FILE = settings.TEMP_FILE
     get_input()
 
@@ -212,5 +212,6 @@ else:
     from .errors import FakeUserAgentError
     from .parse import parse_args
 
+    logger = logging.getLogger(__name__)
     TEMP_FILE = settings.TEMP_FILE
 
