@@ -10,22 +10,23 @@ from fake_user_agent import log
 
 logger = logging.getLogger(__name__)
 
-TEMP_DIR = tempfile.gettempdir()   
+
+TEMP_DIR = tempfile.gettempdir()   # str type
 
 def find_tempfile(dir):
     for _, _, files in os.walk(dir):
         for f in files:
             match = re.search(r'^fake_useragent_', f)
             if match:
-                logger.debug(f"{f} is found")
-                return os.path.join(dir, f)
+                logger.debug(f"{f} is found.")
+                return os.path.join(dir, f)    # str type
 
-    logger.debug("No cache is found")
+    logger.debug("No cache is found.")
     return "" 
 
 TEMP_FILE = find_tempfile(TEMP_DIR)
 
-DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=__version__))
+DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=__version__)) # str type
 
 BROWSER_BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
 

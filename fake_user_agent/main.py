@@ -15,7 +15,11 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
+
+logger = logging.getLogger(__name__)
+
 all_versions = defaultdict(list) # a dict created with its values being list
+
 OP = ["FETCHING", "PARSING"]
 
 async def fetch(url, session):
@@ -71,15 +75,14 @@ async def write_to_dict(browser, session):
 
 def write(path, data):
     """Write a json tempfile as cache if there isn't one, or update it if any. """
-
-    rm_tempfile()
-
+    
     global TEMP_FILE
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
-    TEMP_FILE = settings.TEMP_FILE
-    logger.debug(f"Cache has been stored in {path}")
+
+    logger.debug(f"Cache has been stored in {path}.")
+    TEMP_FILE = path
 
 def read(path):
     """Read from a json file into a python object. Here the object is a dict."""
@@ -87,7 +90,7 @@ def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
 
-    logger.debug(f"Read {path} successfully")
+    logger.debug(f"Read {path} successfully.")
     return json.loads(cache_data)
 
 def rm_tempfile():
@@ -95,11 +98,14 @@ def rm_tempfile():
 
     global TEMP_FILE
     if not TEMP_FILE:
+        logger.info("No tempfile found to be deleted.")
         return
 
     os.remove(TEMP_FILE)
-    logger.info(f"{TEMP_FILE} has been removed successfully.")
-    TEMP_FILE = settings.TEMP_FILE
+    
+    file_name = TEMP_FILE.split("/")[-1]
+    logger.info(f"{file_name} has been removed successfully.")
+    TEMP_FILE = ""     
 
 def get_browser(browser):
     """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
@@ -115,7 +121,7 @@ def get_browser(browser):
     else:
         logger.debug(f"{browser} will be formatted.")
         if not isinstance(browser, str):
-            raise FakeUserAgentError("Browser name must be string")
+            raise FakeUserAgentError("Browser name must be string.")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
         if browser not in list(settings.BROWSERS.keys()): # transform an iterator to a list
@@ -162,11 +168,33 @@ async def main(browser=None, use_tempfile=True):
 @timer
 def get_input():
     """Entry point for running fakeua binary on terminal."""
+    
+    args = parse_args()
 
-    browser = get_browser_input()
-    print(asyncio.run(main(browser=browser, use_tempfile=True)))
+    try:
+        if args.version:
+            print("fake_user_agent " + settings.__version__)
+            sys.exit()
 
-# @timer
+        if args.remove:
+            rm_tempfile()
+            sys.exit()
+
+        if args.debug:
+            logger.setLevel(logging.DEBUG)
+
+        browser = args.browser
+
+        if args.nocache:
+            print(asyncio.run(main(browser=browser, use_tempfile=False)))
+        else:
+            print(asyncio.run(main(browser=browser, use_tempfile=True)))
+
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
+
+ 
+@timer
 def user_agent(browser=None, use_tempfile=True):
     """Entry point for getting a user agent by importing this function in a python script."""
 
@@ -175,21 +203,16 @@ def user_agent(browser=None, use_tempfile=True):
 
 if __name__ == "__main__":
     import settings
-    import log
     from errors import FakeUserAgentError
-    from parse import get_browser_input
-
-    logger = logging.getLogger(__name__)
+    from parse import parse_args
 
     TEMP_FILE = settings.TEMP_FILE
-    get_input()
 
 else:
     from . import settings
-    from . import log
     from .errors import FakeUserAgentError
-    from .parse import get_browser_input
-
-    logger = logging.getLogger(__name__)
+    from .parse import parse_args
 
     TEMP_FILE = settings.TEMP_FILE
+
+get_input()

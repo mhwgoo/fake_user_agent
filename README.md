@@ -8,10 +8,10 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name is case insensitive. Some other possible spellings of each browser are mapped to the right one (e.g. "ie" -> "edge", "google" -> "chrome").
 
 # Usage
-On your terminal, enter `fakeua`
+### On your terminal, just simply enter `fakeua`
 ![](/screenshots/new.png)
 
-In python script, just import the function. Every time you run your python script, the user agent value is different.
+### In your python script, just import the function. Every time you run the script, the useragent value will be different.
 ```python
 from fake_user_agent.main import user_agent
 
@@ -21,24 +21,33 @@ ua = user_agent()
 # Specify a browser to randomly choose from:
 ua = user_agent("chrome")
 
-# It usually takes < 2s for the first run, including the time for fetching and parsing. 
-# Using tempfile, it takes < 0.01s from the second time.
-# By default, tempfile is used, it can be turned off and it will take < 2s to run:
+# It takes < 2s for the first run based on my 200M bandwith, including fetching, parsing, and writing cache. 
+# Using tempfile by default, it takes < 0.01s starting from the second time. 
+# You can specify not using tempfile, and it will take < 1s to run, including fetching and parsing:
 ua = user_agent(use_tempfile=False)
 
 # If there is an async function needing a useragent in your script,
 # don't put `user_agent()` in your async function, put it above instead.
 
-# Remove tempfile in python script. 
-# May need sudo python yourscript.py for Linux
+# Remove tempfile in a python script. 
+# May need `sudo python yourscript.py` for Linux.
 from fake_user_agent.main import rm_tempfile
 rm_tempfile()  
 ```
 
-Remove tempfile on Linux or MacOS terminal. Replace `var` with respective folder name on Windows
+### Other usages on terminal
 ```bash
-find /var/ -name "fake_useragent*" -type f -exec rm {} \; # For MacOS
-find /tmp/ -name "fake_useragent*" -type f -exec rm {} \; # For Linux
+# Set to get a useragent in debug mode
+fakeua <browser or omit> --debug
+
+# Set to get a useragent without local caching
+fakeua <browser or omit> --nocache
+
+# Remove cache from tempfile folder
+fakeua --remove  
+
+# Print the current version of the program
+fakeua --version
 ```
 
 # Installation
