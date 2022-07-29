@@ -8,10 +8,10 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name is case insensitive. Some other possible spellings of each browser are mapped to the right one (e.g. "ie" -> "edge", "google" -> "chrome").
 
 # Usage
-### On your terminal, just simply enter `fakeua`
+On your terminal, just simply enter `fakeua`
 ![](/screenshots/new.png)
 
-### In your python script, just import the function. Every time you run the script, the useragent value will be different.
+In your python script, import the function. Every time you run the script, the useragent value will be different.
 ```python
 from fake_user_agent import user_agent
 
@@ -35,7 +35,7 @@ from fake_user_agent import rm_tempfile
 rm_tempfile()  
 ```
 
-### Other usages on terminal
+Other usages on terminal
 ```bash
 # Set to get a useragent in debug mode
 fakeua <browser or omit> --debug
