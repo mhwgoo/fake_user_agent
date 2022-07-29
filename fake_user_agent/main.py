@@ -74,7 +74,7 @@ async def parse(browser, session):
             if not versions:
                 attempt = call_on_error(FakeUserAgentError("Nothing parsed out"), url, attempt, op[1])
 
-            logger.debug(f"{browser} has been parsed successfully.\n")
+            logger.debug(f"{browser} has been parsed successfully.")
             return versions
 
 async def write_to_dict(browser, session):
