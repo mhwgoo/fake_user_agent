@@ -59,11 +59,23 @@ def call_on_error(error, url, attempt, op):
 async def parse(browser, session):
     """Parse out a browser's versions.""" 
 
-    html_str = await fetch(settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser)), session)
+    url = settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser))
+    html_str = await fetch(url, session)
     lxml_element = etree.HTML(html_str)
-    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[: settings.BROWSERS_COUNT_LIMIT]
-    logger.debug(f"{browser} has been parsed successfully.")
-    return versions
+
+    attempt = 0
+
+    while True:
+        try:
+            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[: settings.BROWSERS_COUNT_LIMIT]
+        except Exception as e:
+            attempt = call_on_error(e, url, attempt, OP[1])
+        else:
+            if not versions:
+                attempt = call_on_error(FakeUserAgentError("Nothing parsed out"), url, attempt, op[1])
+
+            logger.debug(f"{browser} has been parsed successfully.")
+            return versions
 
 async def write_to_dict(browser, session):
     """Write versions to the `all_versions` dict {browser:versions}."""
