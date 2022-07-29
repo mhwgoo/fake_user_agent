@@ -7,7 +7,7 @@ import logging
 
 from . import log
 
-version = "2.0.3" 
+version = "2.0.4" 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

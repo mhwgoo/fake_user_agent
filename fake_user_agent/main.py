@@ -74,7 +74,7 @@ async def parse(browser, session):
             if not versions:
                 attempt = call_on_error(FakeUserAgentError("Nothing parsed out"), url, attempt, op[1])
 
-            logger.debug(f"{browser} has been parsed successfully.")
+            logger.debug(f"{browser} has been parsed successfully.\n")
             return versions
 
 async def write_to_dict(browser, session):
@@ -93,7 +93,7 @@ def write(path, data):
         dumped = json.dumps(data)
         f.write(dumped)
 
-    logger.debug(f"Cache has been stored in {path}.")
+    logger.debug(f"Cache has been stored in {path}.\n")
     TEMP_FILE = path
 
 def read(path):
@@ -102,7 +102,7 @@ def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
 
-    logger.debug(f"Read {path} successfully.")
+    logger.debug(f"Read {path} successfully.\n")
     return json.loads(cache_data)
 
 def rm_tempfile():
@@ -198,12 +198,10 @@ def get_input():
             
         browser = args.browser
         
-        print()
         if args.nocache:
             print(asyncio.run(main(browser=browser, use_tempfile=False)))
         else:
             print(asyncio.run(main(browser=browser, use_tempfile=True)))
-        print()
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
