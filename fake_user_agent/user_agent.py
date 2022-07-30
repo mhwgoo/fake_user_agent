@@ -1,4 +1,11 @@
-"""Main script to randomly generate a fake useragent."""
+"""
+Main script to randomly generate a fake useragent.
+
+WARNING:
+This module name has been changed from main.py since version 2.1.0. Now it's user_agent.py.
+This change is made in order to display better debugging message when the module is imported in third-party module.
+If you are using `from fake_user_agent.main import user_agent`, You need to change it to `from fake_user_agent import user_agent`.
+"""
 
 import os
 import json
@@ -36,7 +43,7 @@ async def fetch(url, session):
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[0])
         else:
-            logger.debug(f"{url} has been fetched successfully.")
+            logger.debug(f"{url} has been fetched successfully")
             return result
 
 def call_on_error(error, url, attempt, op):
@@ -73,7 +80,7 @@ async def parse(browser, session):
             if not versions:
                 attempt = call_on_error(FakeUserAgentError("Nothing parsed out"), url, attempt, op[1])
 
-            logger.debug(f"{browser} has been parsed successfully.")
+            logger.debug(f"{browser} has been parsed successfully")
             return versions
 
 async def write_to_dict(browser, session):
@@ -82,7 +89,7 @@ async def write_to_dict(browser, session):
     global all_versions
     versions = await parse(browser, session)
     all_versions[browser].extend(versions) # add each element of versions list to the end of the list to be extended 
-    logger.debug(f"{browser} versions has been written to all_versions.")
+    logger.debug(f"{browser} versions has been written to all_versions")
 
 def write(path, data):
     """Write a json tempfile as cache if there isn't one, or update it if any. """
@@ -91,7 +98,7 @@ def write(path, data):
         dumped = json.dumps(data)
         f.write(dumped)
 
-    logger.debug(f"Cache has been stored in {path}.\n")
+    logger.debug(f"Cache has been stored in {path}\n")
 
     global TEMP_FILE
     TEMP_FILE = path
@@ -102,7 +109,7 @@ def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
 
-    logger.debug(f"Read {path} successfully.\n")
+    logger.debug(f"Read {path} successfully\n")
     return json.loads(cache_data)
 
 def rm_tempfile():
@@ -125,7 +132,7 @@ def get_browser(browser):
     """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
 
     if not browser:
-        logger.debug(f"A browser will be randowly given.")
+        logger.debug(f"A browser will be randowly given")
         browser = random.choices(
             list(settings.BROWSERS.keys()),
             weights=list(settings.BROWSERS.values()),
@@ -133,7 +140,7 @@ def get_browser(browser):
         )[0]
 
     else:
-        logger.debug(f"{browser} will be formatted.")
+        logger.debug(f"{browser} will be formatted")
         if not isinstance(browser, str):
             raise FakeUserAgentError("Browser name must be string.")
         browser = browser.strip().lower()
@@ -159,7 +166,7 @@ def timer(func):
 
 async def main(browser=None, use_tempfile=True):
     browser = get_browser(browser)
-    logger.debug(f"Got {browser}.")
+    logger.debug(f"Got {browser}")
 
     if not use_tempfile :
         async with ClientSession() as session:

@@ -7,7 +7,7 @@ import logging
 
 from .log import logger
 
-version = "2.0.7" 
+version = "2.1.0" 
 
 TEMP_DIR = tempfile.gettempdir()   # str type
 
