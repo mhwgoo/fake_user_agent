@@ -4,9 +4,9 @@ import os
 import re
 import tempfile
 
-from log import logger
+from .log import logger
 
-version = "2.1.1"
+version = "2.1.2"
 
 TEMP_DIR = tempfile.gettempdir()  # str type
 
