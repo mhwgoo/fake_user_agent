@@ -22,21 +22,26 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
-all_versions = defaultdict(list) # a dict created with its values being list
+all_versions = defaultdict(list)  # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
 
 TEMP_FILE = ""  # if `TEMP_FILE` is imported from settings.py, later logger level change won't affect `find_tempfile` that has been run immediately after importing
 
+
 async def fetch(url, session):
     """Fetch html text file using aiohttp session."""
 
-    attempt = 0 
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"}
+    attempt = 0
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
+    }
 
     while True:
         try:
-            async with session.get(url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False) as resp:
+            async with session.get(
+                url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False
+            ) as resp:
                 result = await resp.text()
         except asyncio.TimeoutError as e:
             attempt = call_on_error(e, url, attempt, OP[0])
@@ -45,6 +50,7 @@ async def fetch(url, session):
         else:
             logger.debug(f"{url} has been fetched successfully")
             return result
+
 
 def call_on_error(error, url, attempt, op):
     """Retry mechanism when an error occurs."""
@@ -62,8 +68,9 @@ def call_on_error(error, url, attempt, op):
         sys.exit()
     return attempt
 
+
 async def parse(browser, session):
-    """Parse out a browser's versions.""" 
+    """Parse out a browser's versions."""
 
     url = settings.BROWSER_BASE_PAGE.format(browser=quote_plus(browser))
     html_str = await fetch(url, session)
@@ -73,27 +80,35 @@ async def parse(browser, session):
 
     while True:
         try:
-            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[: settings.BROWSERS_COUNT_LIMIT]
+            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
+                : settings.BROWSERS_COUNT_LIMIT
+            ]
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[1])
         else:
             if not versions:
-                attempt = call_on_error(FakeUserAgentError("Nothing parsed out"), url, attempt, op[1])
+                attempt = call_on_error(
+                    FakeUserAgentError("Nothing parsed out"), url, attempt, OP[1]
+                )
 
             logger.debug(f"{browser} has been parsed successfully")
             return versions
+
 
 async def write_to_dict(browser, session):
     """Write versions to the `all_versions` dict {browser:versions}."""
 
     global all_versions
     versions = await parse(browser, session)
-    all_versions[browser].extend(versions) # add each element of versions list to the end of the list to be extended 
+    all_versions[browser].extend(
+        versions
+    )  # add each element of versions list to the end of the list to be extended
     logger.debug(f"{browser} versions has been written to all_versions")
 
+
 def write(path, data):
-    """Write a json tempfile as cache if there isn't one, or update it if any. """
-    
+    """Write a json tempfile as cache if there isn't one, or update it if any."""
+
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
         f.write(dumped)
@@ -102,6 +117,7 @@ def write(path, data):
 
     global TEMP_FILE
     TEMP_FILE = path
+
 
 def read(path):
     """Read from a json file into a python object. Here the object is a dict."""
@@ -112,6 +128,7 @@ def read(path):
     logger.debug(f"Read {path} successfully\n")
     return json.loads(cache_data)
 
+
 def rm_tempfile():
     """Remove the tempfile as cache if any."""
 
@@ -121,12 +138,13 @@ def rm_tempfile():
         return
 
     os.remove(tempfile)
-    
+
     file_name = tempfile.split("/")[-1]
     print(f"{file_name} has been removed successfully.")
 
     global TEMP_FILE
-    TEMP_FILE = ""     
+    TEMP_FILE = ""
+
 
 def get_browser(browser):
     """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
@@ -145,13 +163,16 @@ def get_browser(browser):
             raise FakeUserAgentError("Browser name must be string.")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
-        if browser not in list(settings.BROWSERS.keys()): # transform an iterator to a list
+        if browser not in list(
+            settings.BROWSERS.keys()
+        ):  # transform an iterator to a list
             raise FakeUserAgentError(f"{browser} is not supported.")
 
-    return browser 
-    
+    return browser
+
 
 # ----------main----------
+
 
 def timer(func):
     @wraps(func)
@@ -164,11 +185,12 @@ def timer(func):
 
     return wrapper
 
+
 async def main(browser=None, use_tempfile=True):
     browser = get_browser(browser)
     logger.debug(f"Got {browser}")
 
-    if not use_tempfile :
+    if not use_tempfile:
         async with ClientSession() as session:
             versions = await parse(browser, session)
             return random.choice(versions)
@@ -190,10 +212,11 @@ async def main(browser=None, use_tempfile=True):
                 write(settings.DB, all_versions)
                 return random.choice(all_versions[browser])
 
+
 @timer
 def get_input():
     """Entry point for running fakeua binary on terminal."""
-    
+
     args = parse_args()
 
     try:
@@ -207,9 +230,9 @@ def get_input():
 
         if args.debug:
             logging.getLogger(__package__).setLevel(logging.DEBUG)
-            
+
         browser = args.browser
-        
+
         if args.nocache:
             print(asyncio.run(main(browser=browser, use_tempfile=False)))
         else:
@@ -217,6 +240,7 @@ def get_input():
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
+
 
 def user_agent(browser=None, use_tempfile=True):
     """Entry point for getting a user agent by importing this function in a python script."""
@@ -231,12 +255,10 @@ if __name__ == "__main__":
     from parse import parse_args
 
     get_input()
-   
+
 
 else:
     from . import settings
     from .log import logger
     from .errors import FakeUserAgentError
     from .parse import parse_args
-
-

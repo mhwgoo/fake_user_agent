@@ -1,5 +1,6 @@
 import argparse
 
+
 def parse_args():
     """Get the arguments from command line."""
 
@@ -44,5 +45,3 @@ def parse_args():
 
     args = parser.parse_args()
     return args
-
-

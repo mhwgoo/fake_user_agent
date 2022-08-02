@@ -3,28 +3,33 @@
 import os
 import re
 import tempfile
-import logging
 
-from .log import logger
+from log import logger
 
-version = "2.1.0" 
+version = "2.1.1"
 
-TEMP_DIR = tempfile.gettempdir()   # str type
+TEMP_DIR = tempfile.gettempdir()  # str type
+
 
 def find_tempfile(dir):
     for _, _, files in os.walk(dir):
         for f in files:
-            match = re.search(r'^fake_useragent_', f)
+            match = re.search(r"^fake_useragent_", f)
             if match:
                 logger.debug(f"{f} is found.")
-                return os.path.join(dir, f)    # str type
+                return os.path.join(dir, f)  # str type
 
     logger.debug("No cache is found.")
-    return "" 
+    return ""
 
-DB = os.path.join(TEMP_DIR, "fake_useragent_{version}.json".format(version=version)) # str type
 
-BROWSER_BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
+DB = os.path.join(
+    TEMP_DIR, "fake_useragent_{version}.json".format(version=version)
+)  # str type
+
+BROWSER_BASE_PAGE = (
+    "http://useragentstring.com/pages/useragentstring.php?name={browser}"
+)
 
 BROWSERS = {
     "chrome": 80.7,
@@ -45,5 +50,3 @@ SHORTCUTS = {
 BROWSERS_COUNT_LIMIT = 50
 
 HTTP_TIMEOUT = 10
-
-
