@@ -22,6 +22,13 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
+
+from . import settings
+from .log import logger
+from .errors import FakeUserAgentError
+from .parse import parse_args
+
+
 all_versions = defaultdict(list)  # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
@@ -206,6 +213,8 @@ async def main(browser=None, use_tempfile=True):
             async with ClientSession() as session:
                 tasks = []
                 for b in settings.BROWSERS.keys():
+                    # Each iteration of a for loop, b gets assigned again.
+                    # If b is named `browser` then `browser` value in the local space of the function will be set `settings.BROWSERS.keys()[-1]`
                     tasks.append(write_to_dict(b, session))
                 await asyncio.gather(*tasks)
 
@@ -249,16 +258,4 @@ def user_agent(browser=None, use_tempfile=True):
 
 
 if __name__ == "__main__":
-    import settings
-    from log import logger
-    from errors import FakeUserAgentError
-    from parse import parse_args
-
     get_input()
-
-
-else:
-    from . import settings
-    from .log import logger
-    from .errors import FakeUserAgentError
-    from .parse import parse_args

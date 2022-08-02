@@ -6,7 +6,7 @@ import tempfile
 
 from .log import logger
 
-version = "2.1.2"
+VERSION = "2.1.3"
 
 TEMP_DIR = tempfile.gettempdir()  # str type
 
@@ -24,7 +24,7 @@ def find_tempfile(dir):
 
 
 DB = os.path.join(
-    TEMP_DIR, "fake_useragent_{version}.json".format(version=version)
+    TEMP_DIR, "fake_useragent_{version}.json".format(version=VERSION)
 )  # str type
 
 BROWSER_BASE_PAGE = (

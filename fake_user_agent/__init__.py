@@ -3,7 +3,7 @@
 from .user_agent import (
     user_agent,
     rm_tempfile,
-)  # for convenience, only need `from fake_user_agent import user_agent, rm_tempfile`, without the module name specified in the import path
-from .settings import version
+)
+from .settings import VERSION
 
-__version__ = version
+__version__ = VERSION
