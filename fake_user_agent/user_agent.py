@@ -230,7 +230,7 @@ def get_input():
 
     try:
         if args.version:
-            print("fake_user_agent " + settings.version)
+            print("fake_user_agent " + settings.VERSION)
             sys.exit()
 
         if args.remove:

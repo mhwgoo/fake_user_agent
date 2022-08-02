@@ -6,7 +6,7 @@ import tempfile
 
 from .log import logger
 
-VERSION = "2.1.3"
+VERSION = "2.1.4"
 
 TEMP_DIR = tempfile.gettempdir()  # str type
 
