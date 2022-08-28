@@ -23,6 +23,12 @@ import asyncio
 from aiohttp import ClientSession
 
 
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# from fake_user_agent import settings
+# from fake_user_agent.log import logger
+# from fake_user_agent.errors import FakeUserAgentError
+# from fake_user_agent.parse import parse_args
+
 from . import settings
 from .log import logger
 from .errors import FakeUserAgentError
@@ -180,7 +186,6 @@ def get_browser(browser):
 
 # ----------main----------
 
-
 def timer(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -219,7 +224,8 @@ async def main(browser=None, use_tempfile=True):
                 await asyncio.gather(*tasks)
 
                 write(settings.DB, all_versions)
-                return random.choice(all_versions[browser])
+                result = str(random.choice(all_versions[browser]))
+                return result
 
 
 @timer
