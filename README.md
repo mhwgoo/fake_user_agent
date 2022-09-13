@@ -40,7 +40,6 @@ ua = user_agent()
 # Specify a browser to randomly choose from
 ua = user_agent("chrome")
 
-
 # Specify not using cache, it will take < 1s to run, including fetching and parsing.
 ua = user_agent(use_cache=False)
 
