@@ -40,7 +40,7 @@ def parse_args():
         "-r",
         "--remove",
         action="store_true",
-        help="remove cache from tempfile folder",
+        help="remove the cache file",
     )
 
     args = parser.parse_args()

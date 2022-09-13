@@ -1,4 +1,5 @@
 /fake_user_agent/__pycache__/
 /fake_user_agent/ideas/
 dist/
+.DS_Store
 

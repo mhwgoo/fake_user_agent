@@ -7,8 +7,11 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 
 Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name is case insensitive. Some other possible spellings of each browser are mapped to the right one (e.g. "ie" -> "edge", "google" -> "chrome").
 
+It takes < 2s for the first run, including fetching, parsing, and writing cache. It only takes < 0.01s starting from the second time by using cache by default. 
+
 # Usage
-### As a binary, on your terminal, just simply enter `fakeua`
+### As a binary
+On your terminal, just simply enter `fakeua`
 ![](/screenshots/new.png)
 
 Other usages on terminal:
@@ -26,8 +29,8 @@ fakeua --remove
 fakeua --version
 ```
 
-### As a library, in your python script, import the function. 
-Every time you run the script, the useragent value will be different.
+### As a library
+In your python script, import the function. Every time you run the script, the useragent value will be different.
 ```python
 from fake_user_agent import user_agent
 
@@ -37,9 +40,8 @@ ua = user_agent()
 # Specify a browser to randomly choose from
 ua = user_agent("chrome")
 
-# It takes < 2s for the first run, including fetching, parsing, and writing cache. 
-# Using cache by default, it takes < 0.01s starting from the second time. 
-# You can specify not using cache, and it will take < 1s to run, including fetching and parsing.
+
+# Specify not using cache, it will take < 1s to run, including fetching and parsing.
 ua = user_agent(use_cache=False)
 
 # If there is an async function needing a useragent in your script,
