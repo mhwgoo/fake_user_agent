@@ -2,7 +2,7 @@
 
 from .user_agent import (
     user_agent,
-    rm_tempfile,
+    rm_cache,
 )
 from .settings import VERSION
 

@@ -2,16 +2,20 @@
 
 import os
 import re
-import tempfile
+from pathlib import Path
 
 from .log import logger
 
-VERSION = "2.1.5"
-
-TEMP_DIR = tempfile.gettempdir()  # str type
+VERSION = "2.1.6"
 
 
-def find_tempfile(dir):
+CACHE_DIR = Path.home() / ".cache" / "fakeua"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+DB = str(CACHE_DIR / "fake_useragent_{version}.json".format(version=VERSION))
+
+
+def get_cache(dir):
+    logger.debug(f"Got cache folder: {dir}")
     for _, _, files in os.walk(dir):
         for f in files:
             match = re.search(r"^fake_useragent_", f)
@@ -22,10 +26,6 @@ def find_tempfile(dir):
     logger.debug("No cache is found.")
     return ""
 
-
-DB = os.path.join(
-    TEMP_DIR, "fake_useragent_{version}.json".format(version=VERSION)
-)  # str type
 
 BROWSER_BASE_PAGE = (
     "http://useragentstring.com/pages/useragentstring.php?name={browser}"

@@ -23,23 +23,23 @@ import asyncio
 from aiohttp import ClientSession
 
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# from fake_user_agent import settings
-# from fake_user_agent.log import logger
-# from fake_user_agent.errors import FakeUserAgentError
-# from fake_user_agent.parse import parse_args
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from fake_user_agent import settings
+from fake_user_agent.log import logger
+from fake_user_agent.errors import FakeUserAgentError
+from fake_user_agent.parse import parse_args
 
-from . import settings
-from .log import logger
-from .errors import FakeUserAgentError
-from .parse import parse_args
+# from . import settings
+# from .log import logger
+# from .errors import FakeUserAgentError
+# from .parse import parse_args
 
 
 all_versions = defaultdict(list)  # a dict created with its values being list
 
 OP = ["FETCHING", "PARSING"]
 
-TEMP_FILE = ""  # if `TEMP_FILE` is imported from settings.py, later logger level change won't affect `find_tempfile` that has been run immediately after importing
+CACHE_FILE = ""
 
 
 async def fetch(url, session):
@@ -93,6 +93,7 @@ async def parse(browser, session):
 
     while True:
         try:
+            # data type of the list:  <class 'lxml.etree._ElementUnicodeResult'>
             versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
                 : settings.BROWSERS_COUNT_LIMIT
             ]
@@ -120,7 +121,7 @@ async def write_to_dict(browser, session):
 
 
 def write(path, data):
-    """Write a json tempfile as cache if there isn't one, or update it if any."""
+    """Write a json cache if there isn't one, or update it if any."""
 
     with open(path, encoding="utf-8", mode="wt") as f:
         dumped = json.dumps(data)
@@ -128,8 +129,8 @@ def write(path, data):
 
     logger.debug(f"Cache has been stored in {path}\n")
 
-    global TEMP_FILE
-    TEMP_FILE = path
+    global CACHE_FILE
+    CACHE_FILE = path
 
 
 def read(path):
@@ -142,28 +143,28 @@ def read(path):
     return json.loads(cache_data)
 
 
-def rm_tempfile():
-    """Remove the tempfile as cache if any."""
+def rm_cache():
+    """Remove cache if any."""
 
-    tempfile = settings.find_tempfile(settings.TEMP_DIR)
-    if not tempfile:
-        print("No tempfile found to be deleted.")
+    cache = settings.get_cache(settings.CACHE_DIR)
+    if not cache:
+        print("No cache found to be deleted.")
         return
 
-    os.remove(tempfile)
+    os.remove(cache)
 
-    file_name = tempfile.split("/")[-1]
+    file_name = cache.split("/")[-1]
     print(f"{file_name} has been removed successfully.")
 
-    global TEMP_FILE
-    TEMP_FILE = ""
+    global CACHE_FILE
+    CACHE_FILE = ""
 
 
 def get_browser(browser):
     """If browser name is not given, randomly choose one browser based on weights set in settings.BROWSERS."""
 
     if not browser:
-        logger.debug(f"A browser will be randowly given")
+        logger.debug("A browser will be randowly given")
         browser = random.choices(
             list(settings.BROWSERS.keys()),
             weights=list(settings.BROWSERS.values()),
@@ -198,21 +199,21 @@ def timer(func):
     return wrapper
 
 
-async def main(browser=None, use_tempfile=True):
+async def main(browser=None, use_cache=True):
     browser = get_browser(browser)
     logger.debug(f"Got {browser}")
 
-    if not use_tempfile:
+    if not use_cache:
         async with ClientSession() as session:
             versions = await parse(browser, session)
             return random.choice(versions)
     else:
-        tempfile = settings.find_tempfile(settings.TEMP_DIR)
-        global TEMP_FILE
-        TEMP_FILE = tempfile
+        cache = settings.get_cache(settings.CACHE_DIR)
+        global CACHE_FILE
+        CACHE_FILE = cache
 
-        if TEMP_FILE:
-            data = read(TEMP_FILE)
+        if CACHE_FILE:
+            data = read(CACHE_FILE)
             return random.choice(data[browser])
         else:
             async with ClientSession() as session:
@@ -240,7 +241,7 @@ def get_input():
             sys.exit()
 
         if args.remove:
-            rm_tempfile()
+            rm_cache()
             sys.exit()
 
         if args.debug:
@@ -249,18 +250,18 @@ def get_input():
         browser = args.browser
 
         if args.nocache:
-            print(asyncio.run(main(browser=browser, use_tempfile=False)))
+            print(asyncio.run(main(browser=browser, use_cache=False)))
         else:
-            print(asyncio.run(main(browser=browser, use_tempfile=True)))
+            print(asyncio.run(main(browser=browser, use_cache=True)))
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
 
-def user_agent(browser=None, use_tempfile=True):
+def user_agent(browser=None, use_cache=True):
     """Entry point for getting a user agent by importing this function in a python script."""
 
-    return asyncio.run(main(browser, use_tempfile))
+    return asyncio.run(main(browser, use_cache))
 
 
 if __name__ == "__main__":
