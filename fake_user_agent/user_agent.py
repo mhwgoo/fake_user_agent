@@ -23,16 +23,16 @@ import asyncio
 from aiohttp import ClientSession
 
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from fake_user_agent import settings
-from fake_user_agent.log import logger
-from fake_user_agent.errors import FakeUserAgentError
-from fake_user_agent.parse import parse_args
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# from fake_user_agent import settings
+# from fake_user_agent.log import logger
+# from fake_user_agent.errors import FakeUserAgentError
+# from fake_user_agent.parse import parse_args
 
-# from . import settings
-# from .log import logger
-# from .errors import FakeUserAgentError
-# from .parse import parse_args
+from . import settings
+from .log import logger
+from .errors import FakeUserAgentError
+from .parse import parse_args
 
 
 all_versions = defaultdict(list)  # a dict created with its values being list
