@@ -7,7 +7,7 @@ This project's idea is inspired by [fake-useragent](https://github.com/hellysmil
 
 Supported browsers are: chrome, edge, firefox, safari, and opera. Browser name is case insensitive. Some other possible spellings of each browser are mapped to the right one (e.g. "ie" -> "edge", "google" -> "chrome").
 
-It takes < 2s for the first run, including fetching, parsing, and writing cache. 
+It takes less than 2s for the first run, including fetching, parsing, and writing cache. 
 
 It will take less than 0.01s starting from the second time by using cache by default. 
 
