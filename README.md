@@ -18,10 +18,10 @@ On your terminal, just simply enter `fakeua`
 
 Other usages on terminal:
 ```bash
-# Set to get a useragent in debug mode
+# Get a useragent in debug mode
 fakeua <browser or omit> --debug
 
-# Set to get a useragent without local caching
+# Get a useragent without local caching
 fakeua <browser or omit> --nocache
 
 # Remove cache from $HOME/.cache/fakeua folder
@@ -36,7 +36,7 @@ In your python script, import the function. Every time you run the script, the u
 ```python
 from fake_user_agent import user_agent
 
-# Not specify a browser
+# Not to specify a browser
 ua = user_agent()
 
 # Specify a browser to randomly choose from
