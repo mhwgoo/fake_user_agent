@@ -19,14 +19,14 @@ def parse_args():
         "-n",
         "--nocache",
         action="store_true",
-        help="set to get a useragent without local caching",
+        help="get a useragent without local caching",
     )
 
     parser.add_argument(
         "-d",
         "--debug",
         action="store_true",
-        help="set to get a useragent in debug mode",
+        help="get a useragent in debug mode",
     )
 
     parser.add_argument(

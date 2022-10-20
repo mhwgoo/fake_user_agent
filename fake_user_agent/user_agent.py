@@ -22,17 +22,14 @@ from functools import wraps
 import asyncio
 from aiohttp import ClientSession
 
-
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from fake_user_agent import settings
 # from fake_user_agent.log import logger
-# from fake_user_agent.errors import FakeUserAgentError
-# from fake_user_agent.parse import parse_args
+# from fake_user_agent.args import parse_args
 
 from . import settings
 from .log import logger
-from .errors import FakeUserAgentError
-from .parse import parse_args
+from .args import parse_args
 
 
 all_versions = defaultdict(list)  # a dict created with its values being list
@@ -46,20 +43,18 @@ async def fetch(url, session):
     """Fetch html text file using aiohttp session."""
 
     attempt = 0
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"}
 
     while True:
         try:
-            async with session.get(
-                url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False
-            ) as resp:
+            async with session.get(url, headers=headers, timeout=settings.HTTP_TIMEOUT, ssl=False) as resp:
                 result = await resp.text()
         except asyncio.TimeoutError as e:
             attempt = call_on_error(e, url, attempt, OP[0])
+            continue
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[0])
+            continue
         else:
             logger.debug(f"{url} has been fetched successfully")
             return result
@@ -69,12 +64,7 @@ def call_on_error(error, url, attempt, op):
     """Retry mechanism when an error occurs."""
 
     attempt += 1
-    logger.debug(
-        "%s HTML from %s %d times",
-        op,
-        url,
-        attempt,
-    )
+    logger.debug("%s HTML from %s %d times", op, url, attempt)
     if attempt == 3:
         logger.debug("Maximum %s retries reached. Exit", op)
         logger.error(str(error))
@@ -90,20 +80,17 @@ async def parse(browser, session):
     lxml_element = etree.HTML(html_str)
 
     attempt = 0
-
     while True:
         try:
             # data type of the list:  <class 'lxml.etree._ElementUnicodeResult'>
-            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-                : settings.BROWSERS_COUNT_LIMIT
-            ]
+            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[:settings.BROWSERS_COUNT_LIMIT]
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[1])
+            continue
         else:
             if not versions:
-                attempt = call_on_error(
-                    FakeUserAgentError("Nothing parsed out"), url, attempt, OP[1]
-                )
+                attempt = call_on_error(ValueError("Nothing parsed out"), url, attempt, OP[1])
+                continue
 
             logger.debug(f"{browser} has been parsed successfully")
             return versions
@@ -114,9 +101,7 @@ async def write_to_dict(browser, session):
 
     global all_versions
     versions = await parse(browser, session)
-    all_versions[browser].extend(
-        versions
-    )  # add each element of versions list to the end of the list to be extended
+    all_versions[browser].extend(versions)  # add each element of versions list to the end of the list to be extended
     logger.debug(f"{browser} versions has been written to all_versions")
 
 
@@ -173,14 +158,13 @@ def get_browser(browser):
 
     else:
         logger.debug(f"{browser} will be formatted")
-        if not isinstance(browser, str):
-            raise FakeUserAgentError("Browser name must be string.")
         browser = browser.strip().lower()
         browser = settings.SHORTCUTS.get(browser, browser)
-        if browser not in list(
-            settings.BROWSERS.keys()
-        ):  # transform an iterator to a list
-            raise FakeUserAgentError(f"{browser} is not supported.")
+        if browser not in list(settings.BROWSERS.keys()):  # transform an iterator to a list
+            print(f"Browser name '{browser}' is not supported.")
+            print("Supported browsers: chrome, edge, firefox, safari, opera")
+            print("\nPlease try again with one of the supported browser names.")
+            sys.exit()
 
     return browser
 
@@ -193,7 +177,7 @@ def timer(func):
         start_at = time.time()
         f = func(*args, **kwargs)
         time_taken = round((time.time() - start_at), 4)
-        print("Time taken: {} seconds".format(time_taken))
+        print("\nTime taken: {} seconds".format(time_taken))
         return f
 
     return wrapper
@@ -207,6 +191,7 @@ async def main(browser=None, use_cache=True):
         async with ClientSession() as session:
             versions = await parse(browser, session)
             return random.choice(versions)
+
     else:
         cache = settings.get_cache(settings.CACHE_DIR)
         global CACHE_FILE
@@ -215,6 +200,7 @@ async def main(browser=None, use_cache=True):
         if CACHE_FILE:
             data = read(CACHE_FILE)
             return random.choice(data[browser])
+
         else:
             async with ClientSession() as session:
                 tasks = []
