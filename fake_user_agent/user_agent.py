@@ -66,8 +66,7 @@ def call_on_error(error, url, attempt, op):
     attempt += 1
     logger.debug("%s %s %d times", op, url, attempt)
     if attempt == 3:
-        logger.debug("Maximum %s retries reached.", op)
-        logger.error(str(error))
+        logger.debug("Maximum %s retries reached: %s", op, str(error))
         sys.exit()
     return attempt
 
