@@ -64,9 +64,9 @@ def call_on_error(error, url, attempt, op):
     """Retry mechanism when an error occurs."""
 
     attempt += 1
-    logger.debug("%s HTML from %s %d times", op, url, attempt)
+    logger.debug("%s %s %d times", op, url, attempt)
     if attempt == 3:
-        logger.debug("Maximum %s retries reached. Exit", op)
+        logger.debug("Maximum %s retries reached.", op)
         logger.error(str(error))
         sys.exit()
     return attempt
