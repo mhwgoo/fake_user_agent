@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .log import logger
 
-VERSION = "2.1.7"
+VERSION = "2.1.8"
 
 CACHE_DIR = Path.home() / ".cache" / "fakeua"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)

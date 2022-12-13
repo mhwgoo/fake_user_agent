@@ -88,8 +88,10 @@ async def parse(browser, session):
             continue
         else:
             if not versions:
-                attempt = call_on_error(ValueError("Nothing parsed out"), url, attempt, OP[1])
-                continue
+                # attempt = call_on_error(ValueError("Nothing parsed out"), url, attempt, OP[1])
+                # continue
+                logger.debug(str(ValueError("Nothing parsed out")))
+                return None
 
             logger.debug(f"{browser} has been parsed successfully")
             return versions
@@ -100,6 +102,9 @@ async def write_to_dict(browser, session):
 
     global all_versions
     versions = await parse(browser, session)
+    if versions is None:
+        versions = read("../backup/fake_useragent.json")[browser]
+
     all_versions[browser].extend(versions)  # add each element of versions list to the end of the list to be extended
     logger.debug(f"{browser} versions has been written to all_versions")
 
@@ -189,6 +194,10 @@ async def main(browser=None, use_cache=True):
     if not use_cache:
         async with ClientSession() as session:
             versions = await parse(browser, session)
+            if versions is None:
+                logger.debug(f"Reading from backup data...")
+                backup_data = read("../backup/fake_useragent.json")
+                return random.choice(backup_data[browser])
             return random.choice(versions)
 
     else:
