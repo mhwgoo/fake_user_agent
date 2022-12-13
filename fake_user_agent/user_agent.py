@@ -106,7 +106,7 @@ async def write_to_dict(browser, session):
         versions = read("../backup/fake_useragent.json")[browser]
 
     all_versions[browser].extend(versions)  # add each element of versions list to the end of the list to be extended
-    logger.debug(f"{browser} versions has been written to all_versions")
+    logger.debug(f"{browser} versions has been written to all_versions\n")
 
 
 def write(path, data):
@@ -128,7 +128,7 @@ def read(path):
     with open(path, encoding="utf-8", mode="rt") as f:
         cache_data = f.read()
 
-    logger.debug(f"Read {path} successfully\n")
+    logger.debug(f"Read {path} successfully")
     return json.loads(cache_data)
 
 
