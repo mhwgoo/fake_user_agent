@@ -13,7 +13,7 @@ It will take less than 0.01s starting from the second time by using cache by def
 
 # Usage
 ### As a binary
-On your terminal, just simply enter `fakeua`
+In your terminal, just simply enter `fakeua`
 ![](/screenshots/new.png)
 
 Other usages on terminal:
