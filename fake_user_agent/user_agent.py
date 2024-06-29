@@ -222,6 +222,18 @@ def user_agent(browser=None, use_cache=True):
     return asyncio.run(main(browser, use_cache))
 
 
+async def aio_user_agent(browser=None, use_cache=True):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        return await loop.create_task(main(browser, use_cache))
+    else:
+        return asyncio.run(main(browser, use_cache))
+
+
 if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from fake_user_agent.log import logger
