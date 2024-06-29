@@ -1,4 +1,4 @@
-Randomly generate a valid useragent for faking a browser behavior.
+Randomly generate a valid useragent for faking a browser.
 
 ## As a binary
 ```bash
@@ -13,7 +13,7 @@ fakeua --version           # Print the current version of the program
 ## As a library
 ```python
 # Every time you run the script, the useragent value will be different.
-# Supported browsers to choose from are: "chrome", "edge", "firefox", "safari", and "opera".
+# Supported browsers are: "chrome", "edge", "firefox", "safari", and "opera".
 
 # For non-async caller:
 from fake_user_agent import user_agent
