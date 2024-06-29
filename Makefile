@@ -18,10 +18,12 @@ check:
 env:
 	python3 -m venv venv
 clean_env:
-	@rm -rf venv 
+	@rm -rf venv
 
 release:
 	flit publish
+	@echo "\n===> waiting 3 seconds for PYPI being able to give the newest version"
+	@sleep 3
 	python3 -m pip install fake_user_agent --upgrade
 	python3 -m pip freeze > requirements.txt
 
