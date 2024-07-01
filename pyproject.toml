@@ -18,4 +18,4 @@ requires-python = ">=3.7"
 keywords = "python, browser, useragent, http, header"
 
 [tool.flit.scripts]
-fakeua = "fake_user_agent.user_agent:get_input"
+fakeua = "user_agent"

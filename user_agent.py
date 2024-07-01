@@ -3,7 +3,6 @@ import sys
 import json
 import random
 import re
-import logging
 from pathlib import Path
 from urllib.parse import quote_plus
 from collections import defaultdict
@@ -12,24 +11,30 @@ from lxml import etree  # type: ignore
 import asyncio
 from aiohttp import ClientSession
 
+#FIXME how to make logging exposable to caller
+import logging
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s.%(filename)s[%(lineno)d] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__package__)
+
+#FIXME when updated to a new version, cache file should also be updated.
+
+VERSION = "2.3.0"
 CACHE_DIR = Path.home() / ".cache" / "fakeua"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE = str(CACHE_DIR / "fake_useragent_{version}.json".format(version=VERSION))
 
 BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
-BROWSERS = {"chrome": 80.7, "edge": 5.6, "firefox": 6.1, "safari": 3.7, "opera": 2.4}
-BROWSER_SHORTCUTS = {
-    "internet explorer": "edge",
-    "ie": "edge",
-    "google": "chrome",
-    "googlechrome": "chrome",
-    "ff": "firefox",
-}
+
+BROWSERS = {"chrome": 80, "edge": 86, "firefox": 93, "safari": 97, "opera": 100}
 BROWSER_NUM = 50
 
 OP = ["FETCHING", "PARSING"]
 CACHE_FILE = ""
 all_versions = defaultdict(list)
-
 
 def get_cache(dir):
     logger.debug(f"Got cache folder: {dir}")
@@ -46,7 +51,9 @@ def get_cache(dir):
 
 async def fetch(url, session):
     attempt = 0
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
+    }
 
     while True:
         try:
@@ -80,7 +87,9 @@ async def parse(browser, session):
     attempt = 0
     while True:
         try:
-            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[:BROWSER_NUM]
+            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
+                :BROWSER_NUM
+            ]
         except Exception as e:
             attempt = call_on_error(e, url, attempt, OP[1])
             continue
@@ -137,57 +146,19 @@ def rm_cache():
     CACHE_FILE = ""
 
 
-def get_browser(browser):
-    if not browser:
-        logger.debug("A browser will be randomly given")
-        browser = random.choices(
-            list(BROWSERS.keys()),
-            weights=list(BROWSERS.values()),
-            k=1,
-        )[0]
-
-    else:
-        logger.debug(f"{browser} will be formatted")
-        browser = browser.strip().lower()
-        browser = BROWSER_SHORTCUTS.get(browser, browser)
-        if browser not in list(BROWSERS.keys()):
-            print(f"Browser name '{browser}' is not supported.")
-            print("Supported browsers: chrome, edge, firefox, safari, opera")
-            print("\nPlease try again with one of the supported browser names.")
-            sys.exit()
-
-    return browser
-
-
-def get_input():
-    args = parse_args()
-    try:
-        if args.version:
-            print("fake_user_agent " + __version__)
-            sys.exit()
-
-        if args.remove:
-            rm_cache()
-            sys.exit()
-
-        if args.debug:
-            logger.setLevel(logging.DEBUG)
-
-        browser = args.browser
-
-        if args.nocache:
-            print(asyncio.run(main(browser=browser, use_cache=False)))
-        else:
-            print(asyncio.run(main(browser=browser, use_cache=True)))
-
-    except KeyboardInterrupt:
-        print("\nStopped by user.")
-
-
 async def main(browser=None, use_cache=True):
-    browser = get_browser(browser)
-    logger.debug(f'Got "{browser}".')
+    if browser is None:
+        logger.debug("A browser will be randomly given.")
+        browser = random.choices(list(BROWSERS.keys()), weights=list(BROWSERS.values()), k=1)[0]
+        logger.debug(f'Got "{browser}".')
+    else:
+        logger.debug(f'You gave "{browser}".')
+        browser = browser.strip().lower()
+        if browser not in list(BROWSERS.keys()):
+            logger.error(f'"{browser}" not supported, browser should be one of {list(BROWSERS.keys())}.')
+            return None
 
+    #TODO
     if not use_cache:
         async with ClientSession() as session:
             versions = await parse(browser, session)
@@ -235,17 +206,28 @@ async def aio_user_agent(browser=None, use_cache=True):
 
 
 if __name__ == "__main__":
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from fake_user_agent.log import logger
-    from fake_user_agent.args import parse_args
-    from fake_user_agent.__init__ import __version__
+    import argparse
+    parser = argparse.ArgumentParser(description="Randomly generate a valid useragent for faking a browser.")
+    parser.add_argument("browser", nargs="?", default="", help="supported values: chrome, edge, firefox, safari, opera. (case insensitive)")
+    parser.add_argument("-d", "--debug", action="store_true", help="get a useragent in debug mode")
+    parser.add_argument("-n", "--nocache", action="store_true", help="get a useragent without using local cache")
+    parser.add_argument("-r", "--remove", action="store_true", help="remove cache from $HOME/.cache/fakeua")
+    parser.add_argument("-v", "--version", action="store_true", help="print the current version of the program")
+    args = parser.parse_args()
+    try:
+        if args.version:
+            print("fake_user_agent " + VERSION)
+            sys.exit()
+        if args.remove:
+            rm_cache()
+            sys.exit()
+        if args.debug:
+            logger.setLevel(logging.DEBUG)
+        
+        browser = None if not args.browser else args.browser
+        use_cache = False if args.nocache else True
+        result = asyncio.run(main(browser, use_cache))
+        print(result) if result is not None else sys.exit(1) 
 
-    CACHE = str(CACHE_DIR / "fake_useragent_{version}.json".format(version=__version__))
-    get_input()
-
-else:
-    from .log import logger
-    from .args import parse_args
-    from .__init__ import __version__
-
-    CACHE = str(CACHE_DIR / "fake_useragent_{version}.json".format(version=__version__))
+    except KeyboardInterrupt:
+        print("\nStopped by user.")

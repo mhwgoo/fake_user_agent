@@ -10,9 +10,9 @@ gen:
 
 check:
 	@echo "\n===> running Python linter - ruff"
-	ruff check fake_user_agent
+	ruff check
 	@echo "\n===> running static type checker - pyright"
-	pyright fake_user_agent
+	pyright
 	@echo ""
 
 env:
@@ -29,9 +29,6 @@ release:
 
 .PHONY: clean
 clean:
-	@rm -rf fake_user_agent/__pycache__
-	@rm -rf fake_user_agent/.DS_Store
-	@rm -rf fake_user_agent/.ruff_cache
 	@rm -rf .DS_Store
 	@rm -rf .ruff_cache/
 	@rm -rf dist/

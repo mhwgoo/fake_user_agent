@@ -1,6 +1,3 @@
-fake_user_agent/__pycache__/*
-fake_user_agent/.DS_Store
-fake_user_agent/.ruff_cache/*
 .DS_Store
 .ruff_cache/*
 dist/
