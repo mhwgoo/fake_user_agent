@@ -1,17 +1,11 @@
-import os
 import sys
 import json
 import random
-import re
-from pathlib import Path
+import asyncio
+import aiohttp
 from urllib.parse import quote_plus
-from collections import defaultdict
 from lxml import etree  # type: ignore
 
-import asyncio
-from aiohttp import ClientSession
-
-#FIXME how to make logging exposable to caller
 import logging
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s.%(filename)s[%(lineno)d] %(message)s",
@@ -20,173 +14,124 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__package__)
 
-#FIXME when updated to a new version, cache file should also be updated.
 
 VERSION = "2.3.0"
-CACHE_DIR = Path.home() / ".cache" / "fakeua"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
-CACHE = str(CACHE_DIR / "fake_useragent_{version}.json".format(version=VERSION))
+BACKUP_FILE = f"fake_useragent_{VERSION}.json"
+FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 
-BASE_PAGE = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
-
-BROWSERS = {"chrome": 80, "edge": 86, "firefox": 93, "safari": 97, "opera": 100}
-BROWSER_NUM = 50
-
-OP = ["FETCHING", "PARSING"]
-CACHE_FILE = ""
-all_versions = defaultdict(list)
-
-def get_cache(dir):
-    logger.debug(f"Got cache folder: {dir}")
-    for _, _, files in os.walk(dir):
-        for f in files:
-            match = re.search(r"^fake_useragent_", f)
-            if match:
-                logger.debug(f"{f} is found.")
-                return os.path.join(dir, f)
-
-    logger.debug("No cache is found.")
-    return ""
-
-
-async def fetch(url, session):
-    attempt = 0
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-    }
-
-    while True:
-        try:
-            async with session.get(url, headers=headers, timeout=9, ssl=False) as resp:
-                result = await resp.text()
-        except asyncio.TimeoutError as e:
-            attempt = call_on_error(e, url, attempt, OP[0])
-            continue
-        except Exception as e:
-            attempt = call_on_error(e, url, attempt, OP[0])
-            continue
-        else:
-            logger.debug(f"{url} has been fetched successfully")
-            return result
+BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
+RANDOM_CUM_WEIGHTS = [80, 86, 93, 97, 100]
 
 
 def call_on_error(error, url, attempt, op):
     attempt += 1
     logger.debug(f"{op} {url} {attempt} times")
     if attempt == 3:
-        print(f"Maximum {op} reached: {error}")
-        sys.exit(1)
+        logger.debug(f"Maximum {op} reached: {error.__class__.__name__}: {error}")
     return attempt
 
 
 async def parse(browser, session):
-    url = BASE_PAGE.format(browser=quote_plus(browser))
-    html_str = await fetch(url, session)
-    lxml_element = etree.HTML(html_str)
-
+    base_page = "http://useragentstring.com/pages/useragentstring.php?name={browser}"
+    url = base_page.format(browser=quote_plus(browser))
     attempt = 0
+    result = None
     while True:
         try:
-            versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[
-                :BROWSER_NUM
-            ]
-        except Exception as e:
-            attempt = call_on_error(e, url, attempt, OP[1])
-            continue
-        else:
-            if not versions:
-                logger.debug(str(ValueError("Nothing parsed out")))
-                return None
+            async with session.get(url, headers={"User-Agent": FIXED_UA}, ssl=False) as resp:
+                result = await resp.text()
+                break
+        except aiohttp.ServerTimeoutError as error:
+            attempt = call_on_error(error, url, attempt, "FETCHING")
+            if attempt == 3:
+                break
+            else:
+                continue
+        except Exception as error:
+            logger.debug(f'FETCHING {url} failed: {error.__class__.__name__}: {error}')
+            break
 
-            logger.debug(f"{browser} has been parsed successfully")
-            return versions
+    if result is None: 
+        return (browser, None)
 
+    lxml_element = etree.HTML(result)
+    browser_num = 50
+    versions = lxml_element.xpath('//*[@id="liste"]/ul/li/a/text()')[:browser_num]
+    if not versions:
+        logger.debug("Nothing parsed out. Check if the website has changed.")
+        return (browser, None)
 
-async def write_to_dict(browser, session):
-    global all_versions
-    versions = await parse(browser, session)
-    if versions is None:
-        versions = read("../backup/fake_useragent.json")[browser]
-
-    all_versions[browser].extend(versions)
-    logger.debug(f"{browser} versions has been written to all_versions\n")
-
-
-def write(path, data):
-    with open(path, encoding="utf-8", mode="wt") as f:
-        dumped = json.dumps(data)
-        f.write(dumped)
-
-    logger.debug(f"Cache has been stored in {path}\n")
-
-    global CACHE_FILE
-    CACHE_FILE = path
+    logger.debug(f"{url} has been parsed successfully.")
+    return (browser, versions)
 
 
-def read(path):
-    with open(path, encoding="utf-8", mode="rt") as f:
-        cache_data = f.read()
+async def dump():
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for browser in BROWSERS:
+            tasks.append(parse(browser, session))
+        results = await asyncio.gather(*tasks)
 
-    logger.debug(f"Read {path} successfully")
-    return json.loads(cache_data)
+    if not results:
+        logger.error("Nothing parsed out. Check if the website has changed. Quit out.")
+        sys.exit(1)
+
+    all_browsers = {}
+    for result in results:
+        if result[1] is None: 
+            logger.error('Nothing parsed out from "{result[0]}". Quit out.')
+            sys.exit(1)
+        all_browsers[result[0]] = result[1] 
+
+    dumped = json.dumps(all_browsers)
+    try:
+        with open(BACKUP_FILE, encoding="utf-8", mode="wt") as f:
+            f.write(dumped)
+    except Exception as error:
+        logger.error(f'WRITING <{BACKUP_FILE}> failed: {error.__class__.__name__}: {error}')
+    else:
+        logger.debug(f"Data has been stored in <{BACKUP_FILE}>\n")
 
 
-def rm_cache():
-    cache = get_cache(CACHE_DIR)
-    if not cache:
-        print("No cache found to be deleted.")
-        return
-
-    os.remove(cache)
-
-    file_name = cache.split("/")[-1]
-    print(f"{file_name} has been removed successfully.")
-
-    global CACHE_FILE
-    CACHE_FILE = ""
+def load_and_random(browser):
+    try:
+        with open(BACKUP_FILE, encoding="utf-8") as f:
+            data = f.read()
+    except Exception as error:
+        logger.debug(f'Opening <{BACKUP_FILE}> failed: {error.__class__.__name__}: {error}')
+        logger.debug(f'Resort to a fixed useragent: {FIXED_UA}')
+        return FIXED_UA
+    else:
+        logger.debug(f"Read <{BACKUP_FILE}> successfully.")
+        ua = random.choice(json.loads(data)[browser])
+        logger.debug(f'Randomized a useragent from <{BACKUP_FILE}>')
+        return ua
 
 
 async def main(browser=None, use_cache=True):
     if browser is None:
         logger.debug("A browser will be randomly given.")
-        browser = random.choices(list(BROWSERS.keys()), weights=list(BROWSERS.values()), k=1)[0]
-        logger.debug(f'Got "{browser}".')
+        browser = random.choices(BROWSERS, weights=RANDOM_CUM_WEIGHTS, k=1)[0]
+        logger.debug(f'Got "{browser}"')
     else:
-        logger.debug(f'You gave "{browser}".')
+        logger.debug(f'You gave "{browser}"')
         browser = browser.strip().lower()
-        if browser not in list(BROWSERS.keys()):
-            logger.error(f'"{browser}" not supported, browser should be one of {list(BROWSERS.keys())}.')
-            return None
+        if browser not in BROWSERS:
+            new_browser = random.choices(BROWSERS, weights=RANDOM_CUM_WEIGHTS, k=1)[0]
+            logger.debug(f'"{browser}" not supported, should be one of {BROWSERS}. Randomized "{new_browser}"')
 
-    #TODO
     if not use_cache:
-        async with ClientSession() as session:
-            versions = await parse(browser, session)
+        async with aiohttp.ClientSession() as session:
+            (browser, versions) = await parse(browser, session)
             if versions is None:
-                logger.debug("Reading from backup data...")
-                backup_data = read("../backup/fake_useragent.json")
-                return random.choice(backup_data[browser])
-            return random.choice(versions)
-
+                logger.debug("Reading backup data ...")
+                return load_and_random(browser)
+            else:
+                ua = random.choice(versions)
+                logger.debug("Randomized a useragent without using cache.")
+                return ua 
     else:
-        cache = get_cache(CACHE_DIR)
-        global CACHE_FILE
-        CACHE_FILE = cache
-
-        if CACHE_FILE:
-            data = read(CACHE_FILE)
-            return random.choice(data[browser])
-
-        else:
-            async with ClientSession() as session:
-                tasks = []
-                for b in BROWSERS.keys():
-                    tasks.append(write_to_dict(b, session))
-                await asyncio.gather(*tasks)
-
-                write(CACHE, all_versions)
-                result = str(random.choice(all_versions[browser]))
-                return result
+        return load_and_random(browser)
 
 
 def user_agent(browser=None, use_cache=True):
@@ -209,17 +154,13 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Randomly generate a valid useragent for faking a browser.")
     parser.add_argument("browser", nargs="?", default="", help="supported values: chrome, edge, firefox, safari, opera. (case insensitive)")
-    parser.add_argument("-d", "--debug", action="store_true", help="get a useragent in debug mode")
-    parser.add_argument("-n", "--nocache", action="store_true", help="get a useragent without using local cache")
-    parser.add_argument("-r", "--remove", action="store_true", help="remove cache from $HOME/.cache/fakeua")
+    parser.add_argument("-d", "--debug", action="store_true", help="randomize a useragent in debug mode")
+    parser.add_argument("-n", "--nocache", action="store_true", help="randomize a useragent by fetching the web")
     parser.add_argument("-v", "--version", action="store_true", help="print the current version of the program")
     args = parser.parse_args()
     try:
         if args.version:
             print("fake_user_agent " + VERSION)
-            sys.exit()
-        if args.remove:
-            rm_cache()
             sys.exit()
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -227,7 +168,7 @@ if __name__ == "__main__":
         browser = None if not args.browser else args.browser
         use_cache = False if args.nocache else True
         result = asyncio.run(main(browser, use_cache))
-        print(result) if result is not None else sys.exit(1) 
+        print(result)
 
     except KeyboardInterrupt:
         print("\nStopped by user.")

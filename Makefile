@@ -2,8 +2,6 @@ install:
 	python3 -m pip install -r requirements.txt
 uninstall:
 	python3 -m pip uninstall -r requirements.txt -y
-clean_cache:
-	@rm -rf $HOME/.cache/fakeua
 
 gen:
 	python3 -m pip freeze > requirements.txt
