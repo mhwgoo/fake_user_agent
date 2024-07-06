@@ -19,6 +19,8 @@ clean_env:
 	@rm -rf venv
 
 release:
+	python3 user_agent.py -d -l fake_useragent.json
+	find fake_useragent.json || exit
 	flit publish
 	@echo "\n===> waiting 3 seconds for PYPI being able to give the newest version"
 	@sleep 3

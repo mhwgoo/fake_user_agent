@@ -1,4 +1,5 @@
 import sys
+import os
 import json
 import random
 import asyncio
@@ -16,7 +17,7 @@ logger = logging.getLogger(__package__)
 
 
 VERSION = "2.3.0"
-BACKUP_FILE = f"fake_useragent_{VERSION}.json"
+BACKUP_FILE = "fake_useragent.json"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
@@ -65,7 +66,12 @@ async def parse(browser, session):
     return (browser, versions)
 
 
-async def dump():
+def die(file_path, error, op):
+    logger.error(f'{op} <{file_path}> failed: {error.__class__.__name__}: {error}')
+    sys.exit(1)
+
+
+async def dump(cache_path):
     async with aiohttp.ClientSession() as session:
         tasks = []
         for browser in BROWSERS:
@@ -84,31 +90,55 @@ async def dump():
         all_browsers[result[0]] = result[1] 
 
     dumped = json.dumps(all_browsers)
+
+    dir_name = os.path.dirname(cache_path)
+    if dir_name != "" and dir_name != ".":
+        cache_path = os.path.expanduser(os.path.expandvars(cache_path))
+        dir_name = os.path.dirname(cache_path)
+        if not os.path.exists(dir_name):
+            try:
+                logger.debug(f'CREATING directory <{dir_name}>')
+                os.makedirs(dir_name, exist_ok=True)
+            except Exception as error:
+                die(cache_path, error, "WRITING")
     try:
-        with open(BACKUP_FILE, encoding="utf-8", mode="wt") as f:
+        with open(cache_path, encoding="utf-8", mode="wt") as f:
             f.write(dumped)
     except Exception as error:
-        logger.error(f'WRITING <{BACKUP_FILE}> failed: {error.__class__.__name__}: {error}')
-    else:
-        logger.debug(f"Data has been stored in <{BACKUP_FILE}>\n")
+            die(cache_path, error, "WRITING")
+    logger.debug(f"Data has been stored in <{cache_path}>\n")
 
 
-def load_and_random(browser):
+def remove(cache_path):
+    dir_name = os.path.dirname(cache_path)
+    if dir_name != "" and dir_name != ".":
+        cache_path = os.path.expanduser(os.path.expandvars(cache_path))
+        dir_name = os.path.dirname(cache_path)
+        if not os.path.exists(dir_name):
+            die(cache_path, error, "REMOVING")
     try:
-        with open(BACKUP_FILE, encoding="utf-8") as f:
+        os.remove(cache_path)
+    except Exception as error:
+        die(cache_path, error, "REMOVING")
+    logger.debug(f"<{cache_path}> has been removed successfully.\n")
+
+
+def load_and_random(browser, cache_path):
+    try:
+        with open(cache_path, encoding="utf-8") as f:
             data = f.read()
     except Exception as error:
-        logger.debug(f'Opening <{BACKUP_FILE}> failed: {error.__class__.__name__}: {error}')
+        logger.debug(f'Opening <{cache_path}> failed: {error.__class__.__name__}: {error}')
         logger.debug(f'Resort to a fixed useragent: {FIXED_UA}')
         return FIXED_UA
     else:
-        logger.debug(f"Read <{BACKUP_FILE}> successfully.")
+        logger.debug(f"Read <{cache_path}> successfully.")
         ua = random.choice(json.loads(data)[browser])
-        logger.debug(f'Randomized a useragent from <{BACKUP_FILE}>')
+        logger.debug(f'Randomized a useragent from <{cache_path}>')
         return ua
 
 
-async def main(browser=None, use_cache=True):
+async def main(browser=None, use_cache=True, cache_path=BACKUP_FILE):
     if browser is None:
         logger.debug("A browser will be randomly given.")
         browser = random.choices(BROWSERS, weights=RANDOM_CUM_WEIGHTS, k=1)[0]
@@ -125,29 +155,29 @@ async def main(browser=None, use_cache=True):
             (browser, versions) = await parse(browser, session)
             if versions is None:
                 logger.debug("Reading backup data ...")
-                return load_and_random(browser)
+                return load_and_random(browser, cache_path)
             else:
                 ua = random.choice(versions)
                 logger.debug("Randomized a useragent without using cache.")
                 return ua 
     else:
-        return load_and_random(browser)
+        return load_and_random(browser, cache_path)
 
 
-def user_agent(browser=None, use_cache=True):
-    return asyncio.run(main(browser, use_cache))
+def user_agent(browser=None, use_cache=True, cache_path=BACKUP_FILE):
+    return asyncio.run(main(browser, use_cache, cache_path))
 
 
-async def aio_user_agent(browser=None, use_cache=True):
+async def aio_user_agent(browser=None, use_cache=True, cache_path=BACKUP_FILE):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
 
     if loop is not None and loop.is_running():
-        return await loop.create_task(main(browser, use_cache))
+        return await loop.create_task(main(browser, use_cache, cache_path))
     else:
-        return asyncio.run(main(browser, use_cache))
+        return asyncio.run(main(browser, use_cache, cache_path))
 
 
 if __name__ == "__main__":
@@ -156,6 +186,8 @@ if __name__ == "__main__":
     parser.add_argument("browser", nargs="?", default="", help="supported values: chrome, edge, firefox, safari, opera. (case insensitive)")
     parser.add_argument("-d", "--debug", action="store_true", help="randomize a useragent in debug mode")
     parser.add_argument("-n", "--nocache", action="store_true", help="randomize a useragent by fetching the web")
+    parser.add_argument("-l", "--loadcache", nargs=1, help="load up to date useragent versions to specified file path")
+    parser.add_argument("-r", "--removecache", nargs=1, help="remove a cache file at the specified file path")
     parser.add_argument("-v", "--version", action="store_true", help="print the current version of the program")
     args = parser.parse_args()
     try:
@@ -164,6 +196,12 @@ if __name__ == "__main__":
             sys.exit()
         if args.debug:
             logger.setLevel(logging.DEBUG)
+        if args.loadcache:
+            asyncio.run(dump(args.loadcache[0]))
+            sys.exit()
+        if args.removecache:
+            remove(args.removecache[0])
+            sys.exit()
         
         browser = None if not args.browser else args.browser
         use_cache = False if args.nocache else True
