@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
-module = "user_agent"
+module = "fake_user_agent"
 description-file = "README.md"
 author = "Kate Wang"
 author-email = "kate.wang2018@gmail.com"
@@ -18,4 +18,4 @@ requires-python = ">=3.7"
 keywords = "python, browser, useragent, User-Agent, header"
 
 [tool.flit.scripts]
-fakeua = "user_agent:run_on_term"
+fakeua = "fake_user_agent.user_agent:run_on_term"
