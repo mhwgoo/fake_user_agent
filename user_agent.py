@@ -3,7 +3,7 @@ import os
 import json
 import random
 import asyncio
-import aiohttp 
+from aiohttp import ClientSession, ServerTimeoutError
 from urllib.parse import quote_plus
 from lxml import etree  # type: ignore
 
@@ -42,7 +42,7 @@ async def parse(browser, session):
             async with session.get(url, headers={"User-Agent": FIXED_UA}, ssl=False) as resp:
                 result = await resp.text()
                 break
-        except aiohttp.ServerTimeoutError as error:
+        except ServerTimeoutError as error:
             attempt = call_on_error(error, url, attempt, "FETCHING")
             if attempt == 3:
                 break
@@ -67,7 +67,7 @@ async def parse(browser, session):
 
 
 async def dump(cache_path):
-    async with aiohttp.ClientSession() as session:
+    async with ClientSession() as session:
         tasks = []
         for browser in BROWSERS:
             tasks.append(parse(browser, session))
@@ -142,7 +142,7 @@ async def main(browser=None, use_cache=True, cache_path=BACKUP_FILE):
             logger.debug(f'"{browser}" not supported, should be one of {BROWSERS}. Randomized "{new_browser}"')
 
     if not use_cache:
-        async with aiohttp.ClientSession() as session:
+        async with ClientSession() as session:
             (browser, versions) = await parse(browser, session)
             if versions is None:
                 logger.debug("Reading backup data ...")
@@ -218,3 +218,5 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO,
     )
+
+    run_on_term()
