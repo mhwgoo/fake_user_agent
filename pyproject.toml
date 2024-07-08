@@ -8,7 +8,7 @@ authors = [{name = "Kate Wang", email = "kate.wang2018@gmail.com"}]
 readme = "README.md"
 classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.7"
-requires = ["lxml", "aiohttp"]
+dependencies = ["lxml", "aiohttp"]
 keywords = "python, browser, useragent, User-Agent, header"
 
 [project.urls]
