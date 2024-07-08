@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 from aiohttp import ClientSession, ServerTimeoutError
 from lxml import etree  # type: ignore
 
-VERSION = "2.3.1"
+VERSION = "2.3.2"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 BACKUP_FILE = "fake_useragent.json"
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
@@ -182,7 +182,7 @@ def run_on_term():
             print("fake_user_agent " + VERSION)
             sys.exit()
         if args.debug:
-            logger.setLevel(logging.DEBUG)
+            logging.getLogger().setLevel(logging.DEBUG)
         if args.load:
             asyncio.run(dump(args.load[0]))
             sys.exit()
@@ -213,7 +213,6 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO,
     )
-    logger = logging.getLogger(__package__)
 
     run_on_term()
 
