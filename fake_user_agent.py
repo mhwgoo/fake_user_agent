@@ -16,7 +16,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-VERSION = "2.3.6"
+VERSION = "2.3.7"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 BACKUP_FILE = "fake_useragent.json"
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
@@ -174,7 +174,7 @@ def user_agent(browser=None, use_cache=True, cache_path=BACKUP_FILE):
     return asyncio.run(main(browser, use_cache, cache_path))
 
 
-def run_on_term()
+def run_on_term():
     import argparse
     parser = argparse.ArgumentParser(description="Randomly generate a valid useragent for faking a browser.")
     parser.add_argument("browser", nargs="?", default="", help="supported values: chrome, edge, firefox, safari, opera (case insensitive)")
