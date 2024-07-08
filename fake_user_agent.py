@@ -16,9 +16,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-VERSION = "2.3.7"
+VERSION = "2.3.8"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-BACKUP_FILE = "fake_useragent.json"
+BACKUP_FILE = "./fake_useragent.json"
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
 BROWSERS_CUM_WEIGHTS = [80, 86, 93, 97, 100]
 
