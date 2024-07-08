@@ -11,6 +11,7 @@ requires-python = ">=3.7"
 dependencies = ["lxml", "aiohttp"]
 keywords = ["python", "browser", "useragent", "User-Agent", "header"]
 version = "2.3.0"
+description = "Randomly generate a valid useragent for faking a browser."
 
 [project.urls]
 Source = "https://github.com/KateWang2016/fake_user_agent"
