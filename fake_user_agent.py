@@ -16,7 +16,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-VERSION = "2.3.5"
+VERSION = "2.3.6"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 BACKUP_FILE = "fake_useragent.json"
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
