@@ -10,11 +10,11 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.7"
 dependencies = ["lxml", "aiohttp"]
 keywords = ["python", "browser", "useragent", "User-Agent", "header"]
-version = "2.3.3"
+version = "2.3.4"
 description = "Randomly generate a valid useragent for faking a browser."
 
 [project.urls]
 Source = "https://github.com/KateWang2016/fake_user_agent"
 
 [project.scripts]
-fakeua = "fake_user_agent:run_on_term"
+fakeua = "fake_user_agent"

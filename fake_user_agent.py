@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 from aiohttp import ClientSession, ServerTimeoutError
 from lxml import etree  # type: ignore
 
-VERSION = "2.3.3"
+VERSION = "2.3.4"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
 BACKUP_FILE = "fake_useragent.json"
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
@@ -166,7 +166,15 @@ def user_agent(browser=None, use_cache=True, cache_path=BACKUP_FILE):
     return asyncio.run(main(browser, use_cache, cache_path))
 
 
-def run_on_term():
+if __name__ == "__main__":
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)s %(name)s.%(filename)s[%(lineno)d] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+    )
+
+    logger_term = logging.getLogger('term')
+
     import argparse
     parser = argparse.ArgumentParser(description="Randomly generate a valid useragent for faking a browser.")
     parser.add_argument("browser", nargs="?", default="", help="supported values: chrome, edge, firefox, safari, opera (case insensitive)")
@@ -205,18 +213,6 @@ def run_on_term():
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)s %(name)s.%(filename)s[%(lineno)d] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.INFO,
-    )
-
-    logger_term = logging.getLogger('term')
-
-    run_on_term()
 
 else:
     logger = logging.getLogger(__name__)
