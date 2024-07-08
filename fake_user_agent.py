@@ -3,21 +3,16 @@ import os
 import json
 import random
 import asyncio
+import logging
 from urllib.parse import quote_plus
 from aiohttp import ClientSession, ServerTimeoutError
 from lxml import etree  # type: ignore
 
-import logging
-logger = logging.getLogger(__name__)
-
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 FIXED_UA = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36"
-
 BACKUP_FILE = "fake_useragent.json"
-
 BROWSERS = ['chrome', 'edge', 'firefox', 'safari', 'opera']
 BROWSERS_CUM_WEIGHTS = [80, 86, 93, 97, 100]
-
 
 def quit_on_error(file_path, error, op):
     logger.error(f'{op} <{file_path}> failed: {error.__class__.__name__}: {error}')
@@ -218,5 +213,9 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO,
     )
+    logger = logging.getLogger(__package__)
 
     run_on_term()
+
+else:
+    logger = logging.getLogger(__name__)
