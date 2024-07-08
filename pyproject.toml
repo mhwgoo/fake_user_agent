@@ -2,20 +2,17 @@
 requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
-[tool.flit.metadata]
-module = "fake_user_agent"
-description-file = "README.md"
-author = "Kate Wang"
-author-email = "kate.wang2018@gmail.com"
-home-page = "https://github.com/KateWang2016/fake_user_agent"
-
-classifiers = [ "License :: OSI Approved :: MIT License",]
-
-requires = ["lxml", "aiohttp"]
-
+[project]
+name = "fake_user_agent"
+authors = [{name = "Kate Wang", email = "kate.wang2018@gmail.com"}]
+readme = "README.md"
+classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.7"
-
+requires = ["lxml", "aiohttp"]
 keywords = "python, browser, useragent, User-Agent, header"
 
-[tool.flit.scripts]
-fakeua = "fake_user_agent.user_agent:run_on_term"
+[project.urls]
+Source = "https://github.com/KateWang2016/fake_user_agent"
+
+[project.scripts]
+fakeua = "user_agent:run_on_term"

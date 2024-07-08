@@ -3,8 +3,8 @@ import os
 import json
 import random
 import asyncio
-from aiohttp import ClientSession, ServerTimeoutError
 from urllib.parse import quote_plus
+from aiohttp import ClientSession, ServerTimeoutError
 from lxml import etree  # type: ignore
 
 import logging
