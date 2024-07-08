@@ -31,3 +31,4 @@ clean:
 	@rm -rf .DS_Store
 	@rm -rf .ruff_cache/
 	@rm -rf dist/
+	@rm -rf __pycache__/
