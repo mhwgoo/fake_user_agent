@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "user_agent"
+name = "fake_user_agent"
 authors = [{name = "Kate Wang", email = "kate.wang2018@gmail.com"}]
 readme = "README.md"
 classifiers = ["License :: OSI Approved :: MIT License"]
@@ -17,4 +17,4 @@ description = "Randomly generate a valid useragent for faking a browser."
 Source = "https://github.com/KateWang2016/fake_user_agent"
 
 [project.scripts]
-fakeua = "user_agent:run_on_term"
+fakeua = "fake_user_agent:run_on_term"
