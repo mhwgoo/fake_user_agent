@@ -46,7 +46,7 @@ async def parse(browser, session):
             break
         try:
             resp = await session.get(url, headers={"User-Agent": FIXED_UA}, timeout=8, ssl=False, raise_for_status=True)
-        except TimeoutError as error:
+        except asyncio.TimeoutError as error:
             attempt = call_on_error(error, url, attempt, "FETCHING")
             continue
         except ServerDisconnectedError as error:
