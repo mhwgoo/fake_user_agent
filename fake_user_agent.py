@@ -4,7 +4,7 @@ import json
 import random
 import asyncio
 from urllib.parse import quote_plus
-from aiohttp import ClientSession, ServerTimeoutError
+from aiohttp import ClientSession, ServerDisconnectedError
 from lxml import etree  # type: ignore
 
 import logging
