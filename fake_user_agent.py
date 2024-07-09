@@ -40,19 +40,23 @@ async def parse(browser, session):
     url = base_page.format(browser=quote_plus(browser))
     attempt = 0
     result = None
+
     while True:
+        if attempt == 3:
+            break
         try:
-            async with session.get(url, headers={"User-Agent": FIXED_UA}, ssl=False) as resp:
-                result = await resp.text()
-                break
-        except ServerTimeoutError as error:
+            resp = await session.get(url, headers={"User-Agent": FIXED_UA}, timeout=8, ssl=False, raise_for_status=True)
+        except TimeoutError as error:
             attempt = call_on_error(error, url, attempt, "FETCHING")
-            if attempt == 3:
-                break
-            else:
-                continue
+            continue
+        except ServerDisconnectedError as error:
+            attempt = call_on_error(error, url, attempt, "FETCHING")
+            continue
         except Exception as error:
             logger.debug(f'FETCHING {url} failed: {error.__class__.__name__}: {error}')
+            break
+        else:
+            result = await resp.text()
             break
 
     if result is None:
