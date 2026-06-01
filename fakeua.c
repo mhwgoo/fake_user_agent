@@ -161,14 +161,16 @@ static int fetch_html(struct memory *html, const char *browser_name)
     return 0;
 }
 
-static void *parse(Text out_texts[], uint8_t *out_count, uint8_t cap, BrowserId id)
+static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua)
 {
+    if (out_ua == NULL) return NULL;
+
     struct memory *mem;
     mem = malloc(sizeof(*mem));
     mem->size = 0;
     mem->buf = malloc(1);
 
-    if (fetch_html(mem, browser_names[id]) != 0 ) {
+    if (fetch_html(mem, browser_names[out_ua->id]) != 0 ) {
         free(mem->buf);
         free(mem);
         return NULL;
@@ -176,6 +178,7 @@ static void *parse(Text out_texts[], uint8_t *out_count, uint8_t cap, BrowserId 
 
     const char *p = mem->buf;
 
+    uint8_t cap = (out_texts == NULL) ? rand_u8(MAX_UA_NUM) + 1 : MAX_UA_NUM;
     Text texts[cap];
     uint8_t text_index = 0;
 
@@ -238,34 +241,21 @@ static void *parse(Text out_texts[], uint8_t *out_count, uint8_t cap, BrowserId 
         continue;
     }
 
+    uint8_t random_number = rand_u8(text_index);
+    strncpy(out_ua->item.buf, texts[random_number].buf, texts[random_number].pos + 1);
+    out_ua->item.pos = texts[random_number].pos;
+
+    free(mem->buf);
+    free(mem);
+
+    if (out_texts == NULL) return out_ua;
+
     *out_count = text_index;
     for (uint8_t i = 0; i < text_index; ++i) {
         strncpy(out_texts[i].buf, texts[i].buf, texts[i].pos + 1);
         out_texts[i].pos = texts[i].pos;
     }
-
-    free(mem->buf);
-    free(mem);
     return out_texts;
-}
-
-
-static void *get_ua_fresh(UA *random_ua)
-{
-    if(!random_ua) return NULL;
-
-    Text texts[MAX_UA_NUM];
-    uint8_t text_count = 0;
-    uint8_t random_number = rand_u8(MAX_UA_NUM);
-
-    if (parse(texts, &text_count, random_number + 1, random_ua->id) == NULL) return NULL;
-
-    if (text_count <= random_number) random_number = rand_u8(text_count);
-
-    Text random_text = texts[random_number];
-    strncpy(random_ua->item.buf, random_text.buf, random_text.pos + 1);
-    random_ua->item.pos = random_text.pos;
-    return random_ua;
 }
 
 static int delete_cache()
@@ -342,18 +332,19 @@ int main(int argc, char *argv[])
     srand((unsigned)t);
 
     bool is_fresh = case_insensitive_equal(argv[argc - 1], "-f");
+    char *arg = is_fresh ? argv[argc - 2] : argv[argc - 1];
+    BrowserId browserid = get_browser(arg);
+    if (browserid == BROWSER_NONE) { usage("ERROR: wrong browser name is provided\n"); return 1; }
+    UA random_ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
+
     if (is_fresh) {
-        BrowserId browserid = get_browser(argv[argc - 2]);
-        if (browserid == BROWSER_NONE) { usage("ERROR: wrong browser name is provided\n"); return 1; }
-        UA random_ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
-        if (get_ua_fresh(&random_ua) == NULL) return 1;
+	if (parse(NULL, NULL, &random_ua) == NULL) return 1;
         printf("random '%s' ua is:\n", browser_names[random_ua.id]);
         printf("%s\n", random_ua.item.buf);
-        printf("%d\n", random_ua.item.pos);
         return 0;
     }
 
-    Browser browser = { .id = BROWSER_NONE, .items = NULL, .len = 0, .cap = 0 };
+    Browser browser = { .id = browserid, .items = NULL, .len = 0, .cap = 0 };
     size_t byte_size = MAX_UA_NUM * sizeof *browser.items;
     browser.items = malloc(byte_size);
     if (!browser.items) {
@@ -364,19 +355,14 @@ int main(int argc, char *argv[])
     browser.cap = (uint8_t)MAX_UA_NUM;
 
     if (!fopen(path, "r")) {
-        BrowserId browserid = get_browser(argv[argc - 1]);
-        if (browserid == BROWSER_NONE) { usage("ERROR: wrong browser name is provided\n"); return 1; }
-        browser.id = browserid;
+        if (parse(browser.items, &browser.len, &random_ua) == NULL) { free(browser.items); return 1; }
 
-        if (parse(browser.items, &browser.len, browser.cap, browser.id) == NULL) { free(browser.items); return 1; }
-        pthread_t th;
+	pthread_t th;
         int created = 0;
         if (pthread_create(&th, NULL, download_cache, &browser) == 0) created = 1;
-        uint8_t random_number = rand_u8(browser.len);
 
-        printf("random '%s' ua out of len %d is:\n", browser_names[browser.id], browser.len);
-        printf("%s\n", browser.items[random_number].buf);
-
+        printf("random '%s' ua is:\n", browser_names[random_ua.id]);
+        printf("%s\n", random_ua.item.buf);
         printf("===============\n");
         for (uint8_t i = 0; i < browser.len; ++i) {
             printf("[%d] %s\n", i, browser.items[i].buf);
