@@ -10,9 +10,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <curl/curl.h>
+#include <unistd.h>
 
 static const char *start_page = "http://useragentstring.com/pages/useragentstring.php?name=";
-static const char *path = "uas.yaml";
+static const char *dir ="./browsers";
 static char errbuf[CURL_ERROR_SIZE];
 
 typedef enum {
@@ -37,8 +38,8 @@ static const char *browser_names[BROWSER_COUNT] = {
 #define MAX_TEXT_LEN 256
 
 typedef struct {
-    char buf[MAX_TEXT_LEN];
-    uint8_t pos; // 0 <= pos <256
+    char buf[MAX_TEXT_LEN]; // including "\0", the last char: `text.buf[text.pos] = '\0';`
+    uint8_t pos; // 0 <= pos <256, including the index of "\0", so pos == strlen(buf)
 } Text;
 
 typedef struct {
@@ -52,6 +53,11 @@ typedef struct {
     uint8_t len;
     uint8_t cap;
 } Browser; // one BrowserId, many Texts; suitable for caching
+
+typedef struct {
+    Browser *b;
+    const char *p;
+} Cache;
 
 static int pending_interrupt = 0;
 static void sighandler(int dummy)
@@ -161,7 +167,7 @@ static int fetch_html(struct memory *html, const char *browser_name)
     return 0;
 }
 
-static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua)
+static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua, uint8_t *out_random_number)
 {
     if (out_ua == NULL) return NULL;
 
@@ -208,6 +214,7 @@ static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua)
             continue;
         }
 
+	bool invalid = 0;
         while (*q) {
             if (*q != '<') {
                 // If text in <> doesn't start with "Mozilla/" (not a UA), just let the pointer run past the whole of it.
@@ -220,7 +227,7 @@ static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua)
                 else if (text.pos == 6 && *q == 'a' && text.buf[text.pos - 1] != 0) text.buf[text.pos++] = *q;
                 else if (text.pos == 7 && *q == '/' && text.buf[text.pos - 1] != 0) text.buf[text.pos++] = *q;
                 else if (text.pos >= 8 && text.buf[text.pos - 1] != 0) text.buf[text.pos++] = *q;
-                else text.pos++;
+                else { text.pos++; invalid = 1; }
                 q++;
                 continue;
             } else if (*q == '<' && *(q + 1) == '/' && *(q + 2) == 'a' && *(q + 3) == '>') {
@@ -235,13 +242,14 @@ static void *parse(Text out_texts[], uint8_t *out_count, UA *out_ua)
         }
 
         p = q;
-        if (text.buf[0] == 0) continue;
+        if (invalid) continue;
         text.buf[text.pos] = '\0';
         texts[text_index++] = text;
         continue;
     }
 
     uint8_t random_number = rand_u8(text_index);
+    *out_random_number = random_number;
     strncpy(out_ua->item.buf, texts[random_number].buf, texts[random_number].pos + 1);
     out_ua->item.pos = texts[random_number].pos;
 
@@ -264,31 +272,102 @@ static int delete_cache()
     return 0;
 }
 
-static void *download_cache(void *arg) {
-    printf("TODO: download_cache()\n");
-    // FILE *f = fopen(path, "w");
-    // if (!f) { fprintf(stderr, "failed to open %s: %s\n", path, strerror(errno)); return NULL; }
-
-    // const Browser *browser = (Browser*)arg;
-    // fprintf(f, "%s:\n", browser_names[browser->id]);
-    // fprintf(f, "  ua_count: %zu\n", browser->len);
-    // fprintf(f, "  ua_items:\n");
-
-    // for (uint8_t i = 0; i < browser->len; ++i) {
-    //     // fprintf(f, "  - \"%s\"\n", browser->items[i]);
-    //     fprintf(f, "%s\n", browser->items[i]);
-    // }
-
-    // if (fclose(f) != 0) perror("fclose");
-    return NULL;
-}
-
 static int make_dir(const char *path)
 {
     if (mkdir(path, 0755) == 0) return 0;
     if (errno == EEXIST) return 1;
     perror("mkdir");
     return -1;
+}
+
+static void *download_cache(void *arg)
+{
+    Cache *pa = (Cache*)arg;
+    Browser *b = pa->b;
+    const char *path = pa->p;
+    if (make_dir(dir) == -1) return NULL;
+
+    char temp[128];
+    snprintf(temp, sizeof(temp), "%s/%s.tmpXXXXXX", dir, browser_names[b->id]);
+    int fd = mkstemp(temp);
+    if (fd < 0) { perror("mkstemp"); return NULL; }
+    FILE *f = fdopen(fd, "wb");
+    if (!f) { perror("fdopen"); close(fd); unlink(temp); return NULL; }
+
+    if (fwrite("BRS1", 1, 4, f) != 4) { perror("fwrite(BRS1)"); goto write_err; }
+
+    uint16_t version = 1;
+    if (fwrite(&version, sizeof(version), 1, f) != 1) { perror("fwrite(version)"); goto write_err; }
+
+    uint8_t id = b->id;
+    if (fwrite(&id, sizeof(id), 1, f) != 1) { perror("fwrite(id)"); goto write_err; }
+
+    uint8_t len = b->len;
+    if (fwrite(&len, sizeof(len), 1, f) != 1) { perror("fwrite(len)"); goto write_err; }
+
+    for (uint8_t i = 0; i < b->len; ++i) {
+	Text text = b->items[i]; // b-> items is a pointer, b->items[i] is a value.
+        if (fwrite(&text.pos, sizeof(text.pos), 1, f) != 1) { perror("fwrite(text.pos)"); goto write_err; }
+
+	// compact approach
+        // if (fwrite(text.buf, 1, text.pos + 1, f) != text.pos + 1) { perror("fwrite(text.buf)"); goto write_err; }
+
+	// fixed-size approach
+        if (fwrite(text.buf, 1, MAX_TEXT_LEN, f) != MAX_TEXT_LEN) { perror("fwrite(text.buf)"); goto write_err; }
+    }
+
+    if (fflush(f) != 0) { perror("fflush"); goto write_err; }
+    if (fsync(fileno(f)) != 0) { perror("fsync"); goto write_err; }
+    fclose(f);
+
+    if (rename(temp, path) != 0) { perror("rename"); unlink(temp); return NULL; }
+    return arg;
+
+write_err:
+    fclose(f);
+    unlink(temp);
+    return NULL;
+}
+
+static int read_cache(const char *path, UA *ua)
+{
+    if (!ua) return -1;
+    FILE *f = fopen(path, "rb");
+    if (!f) { perror("fopen"); return -1; }
+
+    char magic[4];
+    if (fread(magic, 1, 4, f) != 4) { perror("fread(magic)"); fclose(f); return -1; }
+    if (memcmp(magic, "BRS1", 4) != 0) { puts("ERROR: magic codes don't match"); fclose(f); return -1; }
+
+    uint16_t version = 0;
+    if (fread(&version, sizeof(version), 1, f) != 1) { perror("fread(version)"); fclose(f); return -1; }
+    if (version != 1) { puts("ERROR: version numbers don't match"); fclose(f); return -1; }
+
+    uint8_t fid = 0;
+    if (fread(&fid, sizeof(fid), 1, f) != 1) { perror("fread(id)"); fclose(f); return -1; }
+    if (fid != ua->id) { puts("ERROR: brower ids don't match"); fclose(f); return -1; }
+
+    uint8_t len = 0;
+    if (fread(&len, sizeof(len), 1, f) != 1) { perror("fread(len)"); fclose(f); return -1; }
+
+    if (len <= 0) { puts("cache file has lenth 0"); fclose(f); return -1; }
+
+    // compact approach
+    // for (uint8_t i = 0; i < b->len; ++i) {
+    //     if (fread(&b->items[i].pos, sizeof(b->items[i].pos), 1, f) != 1) { perror("fread(item.pos)"); return -1; }
+    //     if (fread(&b->items[i].buf, 1, b->items[i].pos + 1, f) != b->items[i].pos + 1) { perror("fread(item.buf)"); return -1; }
+    // }
+
+    // fixed-size approach
+    uint8_t random_number = rand_u8(len);
+    if (random_number > 0) {
+	if (fseek(f, (long)((MAX_TEXT_LEN + 1)*random_number), SEEK_CUR) != 0) { perror("fseek"); fclose(f); return -1; }
+    }
+    if (fread(&ua->item.pos, sizeof(ua->item.pos), 1, f) != 1) { perror("fread(pos)"); fclose(f); return -1; }
+    if (fread(&ua->item.buf, 1, MAX_TEXT_LEN, f) != MAX_TEXT_LEN) { perror("fread(buf)"); fclose(f); return -1; }
+
+    fclose(f);
+    return (int)random_number;
 }
 
 static BrowserId get_browser(char *arg)
@@ -336,32 +415,37 @@ int main(int argc, char *argv[])
     BrowserId browserid = get_browser(arg);
     if (browserid == BROWSER_NONE) { usage("ERROR: wrong browser name is provided\n"); return 1; }
     UA random_ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
+    uint8_t random_number;
 
     if (is_fresh) {
-	if (parse(NULL, NULL, &random_ua) == NULL) return 1;
-        printf("random '%s' ua is:\n", browser_names[random_ua.id]);
+	if (parse(NULL, NULL, &random_ua, &random_number) == NULL) return 1;
+	printf("random '%s' ua at [%d]:\n", browser_names[random_ua.id], random_number);
         printf("%s\n", random_ua.item.buf);
         return 0;
     }
 
     Browser browser = { .id = browserid, .items = NULL, .len = 0, .cap = 0 };
-    size_t byte_size = MAX_UA_NUM * sizeof *browser.items;
-    browser.items = malloc(byte_size);
-    if (!browser.items) {
-        printf("not enough memory (malloc returned NULL)\n");
-        return 1;
-    }
-    memset(browser.items, 0, byte_size);
-    browser.cap = (uint8_t)MAX_UA_NUM;
+    char path[128];
+    snprintf(path, sizeof(path), "%s/%s.brs", dir, browser_names[browserid]);
 
     if (!fopen(path, "r")) {
-        if (parse(browser.items, &browser.len, &random_ua) == NULL) { free(browser.items); return 1; }
+        size_t byte_size = MAX_UA_NUM * sizeof *browser.items;
+        browser.items = malloc(byte_size);
+        if (!browser.items) {
+            printf("not enough memory (malloc returned NULL)\n");
+            return 1;
+        }
+        memset(browser.items, 0, byte_size);
+        browser.cap = (uint8_t)MAX_UA_NUM;
+
+        if (parse(browser.items, &browser.len, &random_ua, &random_number) == NULL) { free(browser.items); return 1; }
 
 	pthread_t th;
         int created = 0;
-        if (pthread_create(&th, NULL, download_cache, &browser) == 0) created = 1;
+	Cache pa = { .b = &browser, .p = path };
+        if (pthread_create(&th, NULL, download_cache, &pa) == 0) created = 1;
 
-        printf("random '%s' ua is:\n", browser_names[random_ua.id]);
+	printf("random '%s' ua at [%d]:\n", browser_names[random_ua.id], random_number);
         printf("%s\n", random_ua.item.buf);
         printf("===============\n");
         for (uint8_t i = 0; i < browser.len; ++i) {
@@ -373,7 +457,17 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    printf("load cache has not been implemented.");
+
+    int result = read_cache(path, &random_ua);
+    if (result == -1) return 1;
+
+    printf("random '%s' ua at [%d]:\n", browser_names[random_ua.id], result);
+    printf("%s\n", random_ua.item.buf);
+    // printf("browser is %s, len is %d\n", browser_names[browser.id], browser.len);
+    // for (uint8_t i = 0; i < browser.len; ++i) {
+    //     printf("[%d] %s\n", i, browser.items[i].buf);
+    //     printf("[%d] %s[%d]\n", i, browser.items[i].buf, browser.items[i].pos);
+    // }
     return 0;
 }
 

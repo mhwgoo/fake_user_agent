@@ -3,3 +3,6 @@
 dist/
 venv/
 _pycache__/
+TAGS
+browsers/
+tmps/
