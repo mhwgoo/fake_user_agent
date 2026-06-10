@@ -169,44 +169,6 @@ static CURL *make_handle(const char *url)
     return curl;
 }
 
-static int fetch_html(struct memory *mem, const char *browser_name)
-{
-    CURLcode result;
-    result = curl_global_init(CURL_GLOBAL_ALL);
-    if (result != CURLE_OK) return (int)result;
-
-    char url[256];
-    snprintf(url, sizeof url, "%s%s", start_page, browser_name);
-
-    CURL *curl = make_handle(url);
-    if (curl == NULL) return -1;
-
-    errbuf[0] = '\0';
-    result = curl_easy_perform(curl);
-    curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
-    if (result != CURLE_OK) {
-        size_t len = strlen(errbuf);
-        fprintf(stderr, "\nlibcurl: (%d) ", result);
-        if (len) fprintf(stderr, "%s%s", errbuf, ((errbuf[len - 1] != '\n') ? "\n" : ""));
-        else fprintf(stderr, "%s\n", curl_easy_strerror(result));
-        return (int)result;
-    }
-
-    long res_status;
-    char *res_url;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res_status);
-    curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &res_url);
-
-    if (res_status != 200) {
-        printf("HTTP %d: %s\n", (int)res_status, res_url);
-        return -1;
-    }
-
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
-    return 0;
-}
-
 static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA *out_ua, uint8_t *out_random_number)
 {
     if (!mem || !mem->buf || mem->size < 100) return NULL;
@@ -294,6 +256,63 @@ static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA 
         out_texts[i].pos = texts[i].pos;
     }
     return out_texts;
+}
+
+static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
+{
+    CURLcode result;
+    result = curl_global_init(CURL_GLOBAL_ALL);
+    if (result != CURLE_OK) return (int)result;
+
+    CURL *curl = make_handle(url);
+    if (curl == NULL) return -1;
+
+    errbuf[0] = '\0';
+    result = curl_easy_perform(curl);
+    if (result != CURLE_OK) {
+        size_t len = strlen(errbuf);
+        fprintf(stderr, "\nlibcurl: (%d) ", result);
+        if (len) fprintf(stderr, "%s%s", errbuf, ((errbuf[len - 1] != '\n') ? "\n" : ""));
+        else fprintf(stderr, "%s\n", curl_easy_strerror(result));
+        return (int)result;
+    }
+
+    long res_status;
+    char *res_url;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res_status);
+    curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &res_url);
+
+    if (res_status != 200) {
+        printf("HTTP %d: %s\n", (int)res_status, res_url);
+        return -1;
+    }
+
+    struct memory *mem;
+    curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
+
+    void *parse_res = parse(mem, NULL, NULL, ua, random_number);
+
+    // discard the approach of creating a new thread to download a cache file while printing ua to stdout
+    // Browser browser = { .id = browserid, .items = NULL, .len = 0, .cap = 0 };
+    // size_t byte_size = MAX_UA_NUM * sizeof(*browser.items);
+    // browser.items = malloc(byte_size);
+    // if (!browser.items) {
+    //     puts("not enough memory (malloc returned NULL)");
+    //     return 1;
+    // }
+    // memset(browser.items, 0, byte_size);
+    // browser.cap = (uint8_t)MAX_UA_NUM;
+    // if (parse(mem, browser.items, &browser.len, &ua, &random_number) < 0) return -1;
+    // pthread_t th;
+    // int created = 0;
+    // Cache pa = { .b = &browser, .path = path };
+    // if (pthread_create(&th, NULL, download_cache, &pa) == 0) created = 1;
+    // if (created) pthread_join(th, NULL);
+    // free(browser.items);
+
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+    return parse_res ? 0 : 1;
 }
 
 static int remove_callback(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
@@ -503,7 +522,7 @@ static void download_caches(void)
     exit(0);
 }
 
-static int read_cache(const char *path, UA *ua)
+static int read_cache(const char *path, UA *ua, uint8_t *random_number)
 {
     if (!ua) return -1;
     FILE *f = fopen(path, "rb");
@@ -568,9 +587,10 @@ static int read_cache(const char *path, UA *ua)
     // }
 
     // fixed-size approach
-    uint8_t random_number = rand_u8(len);
-    if (random_number > 0) {
-        if (fseek(f, (long)((MAX_TEXT_LEN + 1)*random_number), SEEK_CUR) != 0) {
+
+    uint8_t rand_num = rand_u8(len);
+    if (rand_num > 0) {
+        if (fseek(f, (long)((MAX_TEXT_LEN + 1)*rand_num), SEEK_CUR) != 0) {
             perror("fseek");
             fclose(f);
             return -1;
@@ -587,8 +607,9 @@ static int read_cache(const char *path, UA *ua)
         return -1;
     }
 
+    *random_number = rand_num;
     fclose(f);
-    return (int)random_number;
+    return 0;
 }
 
 static void usage(const char *message)
@@ -627,79 +648,23 @@ int main(int argc, char *argv[])
     bool is_fresh = case_insensitive_equal(argv[argc - 1], "-f");
     char *arg = is_fresh ? argv[argc - 2] : argv[argc - 1];
     BrowserId browserid = get_browserid_from_argstr(arg);
-    if (browserid == BROWSER_NONE) {
-        usage("ERROR: wrong browser name is provided\n");
-        return 1;
-    }
-    UA ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
+    if (browserid == BROWSER_NONE) usage("ERROR: wrong browser name is provided\n");
+
+    char path[256];
     uint8_t random_number;
-    int result = 1;
+    UA ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
 
-    if (is_fresh) {
-        struct memory *mem;
-        mem = malloc(sizeof *mem);
-        if (!mem) { puts("not enough memory (malloc returned NULL)"); return result; }
-
-        if ((result = fetch_html(mem, browser_names[browserid])) == 0 ) {
-            if (parse(mem, NULL, NULL, &ua, &random_number) != NULL) {
-                printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
-                printf("%s\n", ua.item.buf);
-            } else result = 1;
-        }
-        free(mem->buf);
-        free(mem);
-        return result;
+    if (is_fresh || !fopen(path, "r")) {
+        snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
+        if (fetch_html(path, &ua, &random_number) != 0) return 1;
+    } else {
+        snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
+        if (read_cache(path, &ua, &random_number) != 0) return 1;
     }
 
-    Browser browser = { .id = browserid, .items = NULL, .len = 0, .cap = 0 };
-    char path[128];
-    snprintf(path, sizeof(path), "%s/%s.brs", dir, browser_names[browserid]);
-
-    if (!fopen(path, "r")) {
-        struct memory *mem;
-        mem = malloc(sizeof *mem);
-        if (!mem) { puts("not enough memory (malloc returned NULL)"); return result; }
-
-        if ((result = fetch_html(mem, browser_names[browserid])) == 0 ) {
-            size_t byte_size = MAX_UA_NUM * sizeof(*browser.items);
-            browser.items = malloc(byte_size);
-            if (!browser.items) {
-                puts("not enough memory (malloc returned NULL)");
-                return 1;
-            }
-            memset(browser.items, 0, byte_size);
-            browser.cap = (uint8_t)MAX_UA_NUM;
-
-            if (parse(mem, browser.items, &browser.len, &ua, &random_number) != NULL) {
-                pthread_t th;
-                int created = 0;
-                Cache pa = { .b = &browser, .path = path };
-                if (pthread_create(&th, NULL, download_cache, &pa) == 0) created = 1;
-
-                printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
-                printf("%s\n", ua.item.buf);
-
-                if (created) pthread_join(th, NULL);
-
-            } else result = 1;
-
-            free(browser.items);
-        }
-
-        free(mem->buf);
-        free(mem);
-        return result;
-    }
-
-    int rresult;
-    if ((rresult = read_cache(path, &ua)) == -1) return result;
-    printf("random '%s' ua at [%d]:\n", browser_names[browserid], rresult);
+    printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
     printf("%s\n", ua.item.buf);
-    // printf("browser is %s, len is %d\n", browser_names[browser.id], browser.len);
-    // for (uint8_t i = 0; i < browser.len; ++i) {
-    //     printf("[%d] %s\n", i, browser.items[i].buf);
-    //     printf("[%d] %s[%d]\n", i, browser.items[i].buf, browser.items[i].pos);
-    // }
+
     return 0;
 }
 
