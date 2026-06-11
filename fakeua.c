@@ -50,10 +50,18 @@ typedef struct {
 
 typedef struct {
     BrowserId id;
+    Text items[MAX_UA_NUM];
+    uint8_t len;
+} Browser; // one BrowserId, many Texts; suitable for caching
+
+/*
+typedef struct {
+    BrowserId id;
     Text *items;
     uint8_t len;
     uint8_t cap;
-} Browser; // one BrowserId, many Texts; suitable for caching
+} Browser;
+*/
 
 struct memory {
     char *buf;
@@ -292,24 +300,6 @@ static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
 
     void *parse_res = parse(mem, NULL, NULL, ua, random_number);
 
-    // discard the approach of creating a new thread to download a cache file while printing ua to stdout
-    // Browser browser = { .id = browserid, .items = NULL, .len = 0, .cap = 0 };
-    // size_t byte_size = MAX_UA_NUM * sizeof(*browser.items);
-    // browser.items = malloc(byte_size);
-    // if (!browser.items) {
-    //     puts("not enough memory (malloc returned NULL)");
-    //     return 1;
-    // }
-    // memset(browser.items, 0, byte_size);
-    // browser.cap = (uint8_t)MAX_UA_NUM;
-    // if (parse(mem, browser.items, &browser.len, &ua, &random_number) < 0) return -1;
-    // pthread_t th;
-    // int created = 0;
-    // Cache pa = { .b = &browser, .path = path };
-    // if (pthread_create(&th, NULL, download_cache, &pa) == 0) created = 1;
-    // if (created) pthread_join(th, NULL);
-    // free(browser.items);
-
     curl_easy_cleanup(curl);
     curl_global_cleanup();
     return parse_res ? 0 : 1;
@@ -474,13 +464,7 @@ static void download_caches(void)
                 struct memory *mem;
                 curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
 
-                Browser browser = { .id = BROWSER_NONE, .items = NULL, .len = 0, .cap = 0 };
-                size_t byte_size = MAX_UA_NUM * sizeof(*browser.items);
-                browser.items = malloc(byte_size);
-                if (browser.items) {
-                    memset(browser.items, 0, byte_size);
-                    browser.cap = (uint8_t)MAX_UA_NUM;
-                } else puts("not enough memory (malloc returned NULL)");
+                Browser browser = { .id = BROWSER_NONE, .len = 0 };
 
                 if(m->data.result == CURLE_OK) {
                     long res_status;
@@ -509,7 +493,6 @@ static void download_caches(void)
 
                 curl_multi_remove_handle(multi, curl);
                 curl_easy_cleanup(curl);
-                free(browser.items);
                 free(mem->buf);
                 free(mem);
                 complete++;
@@ -587,7 +570,6 @@ static int read_cache(const char *path, UA *ua, uint8_t *random_number)
     // }
 
     // fixed-size approach
-
     uint8_t rand_num = rand_u8(len);
     if (rand_num > 0) {
         if (fseek(f, (long)((MAX_TEXT_LEN + 1)*rand_num), SEEK_CUR) != 0) {
@@ -650,16 +632,21 @@ int main(int argc, char *argv[])
     BrowserId browserid = get_browserid_from_argstr(arg);
     if (browserid == BROWSER_NONE) usage("ERROR: wrong browser name is provided\n");
 
-    char path[256];
     uint8_t random_number;
     UA ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
+
+    char path[256];
+    snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
 
     if (is_fresh || !fopen(path, "r")) {
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
         if (fetch_html(path, &ua, &random_number) != 0) return 1;
     } else {
-        snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
-        if (read_cache(path, &ua, &random_number) != 0) return 1;
+        if (read_cache(path, &ua, &random_number) != 0) {
+            puts("cache deserialization failed");
+            return 1;
+        }
+            printf("reading browser [%s] cache\n", browser_names[browserid]);
     }
 
     printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);

@@ -1,4 +1,5 @@
 .DS_Store
+fakeua
 .ruff_cache/*
 dist/
 venv/
