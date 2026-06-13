@@ -1,17 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
+#include <ctype.h>
 #include <time.h>
 #include <pthread.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <curl/curl.h>
 #include <unistd.h>
 #include <ftw.h>
+#include <curl/curl.h>
+
+//TODO standardize error handling
+//TODO make it a library as well
 
 static const char *start_page = "https://useragentstring.com/pages/useragentstring.php?name=";
 static const char *dir ="./browsers";
@@ -40,19 +43,19 @@ static const char *browser_names[BROWSER_COUNT] = {
 
 typedef struct {
     char buf[MAX_TEXT_LEN]; // including "\0", the last char: `text.buf[text.pos] = '\0';`
-    uint8_t pos; // 0 <= pos <256, including the index of "\0", so pos == strlen(buf)
+    uint8_t pos; // 0 <= pos <256, including the index of "\0", pos == strlen(buf)
 } Text;
 
 typedef struct {
     BrowserId id;
     Text item;
-} UA; // one BrowserId, one Text; suitable for fresh mode
+} UA; // one BrowserId, one Text
 
 typedef struct {
     BrowserId id;
     Text items[MAX_UA_NUM];
     uint8_t len;
-} Browser; // one BrowserId, many Texts; suitable for caching
+} Browser; // one BrowserId, many Texts
 
 /*
 typedef struct {
@@ -67,12 +70,6 @@ struct memory {
     char *buf;
     size_t size;
 };
-
-typedef struct {
-    Browser *browser;
-    const char *url;
-    struct memory *mem;
-} Html;
 
 typedef struct {
     Browser *b;
@@ -99,7 +96,7 @@ static uint8_t rand_u8(uint8_t n)
     return (uint8_t)r;
 }
 
-static int case_insensitive_equal(const char *a, const char *b)
+static int str_ci_equal(const char *a, const char *b)
 {
     unsigned char ca, cb;
     if (!a || !b) return 0;
@@ -114,14 +111,14 @@ static int case_insensitive_equal(const char *a, const char *b)
 static BrowserId get_browserid_by_namestr(char *browsername)
 {
     for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
-        if (case_insensitive_equal(browsername, browser_names[b])) return b;
+        if (str_ci_equal(browsername, browser_names[b])) return b;
     }
     return BROWSER_NONE;
 }
 
 static BrowserId get_browserid_from_argstr(char *arg)
 {
-    if (case_insensitive_equal(arg, "browser")) {
+    if (str_ci_equal(arg, "browser")) {
         uint8_t random_number = rand_u8(BROWSER_COUNT);
         return (BrowserId)random_number;
     }
@@ -155,8 +152,8 @@ static CURL *make_handle(const char *url)
     mem->buf = malloc(1);
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data); // curl_easy_setopt defined in curl/lib/setopt.c
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, mem);
-    curl_easy_setopt(curl, CURLOPT_PRIVATE, mem);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, mem); // curl_easy_cleanup(curl) later will free mem
+    curl_easy_setopt(curl, CURLOPT_PRIVATE, mem);   // curl_easy_cleanup(curl) later will free mem
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
@@ -464,7 +461,7 @@ static void download_caches(void)
                 struct memory *mem;
                 curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
 
-                Browser browser = { .id = BROWSER_NONE, .len = 0 };
+                Browser browser = {0};
 
                 if(m->data.result == CURLE_OK) {
                     long res_status;
@@ -474,7 +471,10 @@ static void download_caches(void)
                         char *browser_name = NULL;
                         for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
                             char *ptr = strstr(res_url, browser_names[b]);
-                            if (case_insensitive_equal(ptr, browser_names[b])) { browser_name = ptr; break; }
+                            if (str_ci_equal(ptr, browser_names[b])) {
+                                browser_name = ptr;
+                                break;
+                            }
                         }
 
                         if (browser_name != NULL) {
@@ -615,10 +615,10 @@ int main(int argc, char *argv[])
     const char *program = argv[0];
     const char *subcommand = argv[1];
     if (argv[1] == NULL) usage("ERROR: no subcommand is provided\n");
-    if (case_insensitive_equal(subcommand, "help")) usage(NULL);
-    if (case_insensitive_equal(subcommand, "delete")) delete_cache();
-    if (case_insensitive_equal(subcommand, "download")) download_caches();
-    if (!case_insensitive_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided\n");
+    if (str_ci_equal(subcommand, "help")) usage(NULL);
+    if (str_ci_equal(subcommand, "delete")) delete_cache();
+    if (str_ci_equal(subcommand, "download")) download_caches();
+    if (!str_ci_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided\n");
 
     time_t t = time(NULL);
     if (t == (time_t)-1) {
@@ -627,7 +627,7 @@ int main(int argc, char *argv[])
     }
     srand((unsigned)t);
 
-    bool is_fresh = case_insensitive_equal(argv[argc - 1], "-f");
+    bool is_fresh = str_ci_equal(argv[argc - 1], "-f");
     char *arg = is_fresh ? argv[argc - 2] : argv[argc - 1];
     BrowserId browserid = get_browserid_from_argstr(arg);
     if (browserid == BROWSER_NONE) usage("ERROR: wrong browser name is provided\n");
@@ -646,7 +646,7 @@ int main(int argc, char *argv[])
             puts("cache deserialization failed");
             return 1;
         }
-            printf("reading browser [%s] cache\n", browser_names[browserid]);
+        printf("reading browser [%s] cache\n", browser_names[browserid]);
     }
 
     printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
