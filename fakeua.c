@@ -8,16 +8,16 @@
 #include <pthread.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fts.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <ftw.h>
 #include <curl/curl.h>
 
 //TODO standardize error handling
 //TODO make it a library as well
 
 static const char *start_page = "https://useragentstring.com/pages/useragentstring.php?name=";
-static const char *dir ="./browsers";
+static char *dir ="./browsers";
 static char errbuf[CURL_ERROR_SIZE];
 
 typedef enum {
@@ -302,28 +302,27 @@ static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
     return parse_res ? 0 : 1;
 }
 
-static int remove_callback(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+static void delete_caches()
 {
-    (void)sb;
-    (void)ftwbuf;
-
-    // continue traversal despite individual failures
-    if (typeflag == FTW_DP || typeflag == FTW_D) {
-        if (rmdir(fpath) != 0) perror(fpath);
-    } else {
-        if (unlink(fpath) != 0) perror(fpath);
-    }
-    return 0;
-}
-
-static void delete_cache()
-{
-    if (nftw(dir, remove_callback, 64, FTW_DEPTH | FTW_PHYS) == -1) {
-        perror("nftw");
+    FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+    if (ftsp == NULL) {
+        perror("fts_open");
         exit(1);
     }
+
+    FTSENT *ftsent;
+    while ((ftsent = fts_read(ftsp)) != NULL) {
+        if (ftsent->fts_info == FTS_F) {
+            if (unlink(ftsent->fts_path) != 0) perror("unlink");
+        } else if (ftsent->fts_info == FTS_DP) {
+            if (rmdir(ftsent->fts_path) != 0) perror("rmdir");
+        }
+    }
+
+    fts_close(ftsp);
     exit(0);
 }
+
 
 static int make_dir(const char *path)
 {
@@ -429,6 +428,16 @@ static void download_caches(void)
     if (!multi) {
         curl_global_cleanup();
         exit(1);
+    }
+
+    const char **filenames;
+    FTSENT *parent = fts_read(ftsp);
+    if (parent != NULL && parent->fts_info == FTS_D) {
+        FTSENT *child = fts_children(ftsp, 0);
+        while (child != NULL) {
+            *filenames++ = child->fts_name;
+            child = child->fts_link;
+        }
     }
 
     for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
@@ -616,7 +625,7 @@ int main(int argc, char *argv[])
     const char *subcommand = argv[1];
     if (argv[1] == NULL) usage("ERROR: no subcommand is provided\n");
     if (str_ci_equal(subcommand, "help")) usage(NULL);
-    if (str_ci_equal(subcommand, "delete")) delete_cache();
+    if (str_ci_equal(subcommand, "delete")) delete_caches();
     if (str_ci_equal(subcommand, "download")) download_caches();
     if (!str_ci_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided\n");
 
