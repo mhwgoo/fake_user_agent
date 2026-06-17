@@ -5,7 +5,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <pthread.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <fts.h>
@@ -302,7 +301,8 @@ static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
     return parse_res ? 0 : 1;
 }
 
-static void delete_caches()
+//TODO what's the case of no dir found
+static void delete()
 {
     FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
     if (ftsp == NULL) {
@@ -332,7 +332,7 @@ static int make_dir(const char *path)
     return -1;
 }
 
-static void *download_cache(void *arg)
+static void *dump_a_browser(void *arg)
 {
     Cache *pa = (Cache*)arg;
     Browser *b = pa->b;
@@ -354,12 +354,12 @@ static void *download_cache(void *arg)
         return NULL;
     }
 
-    if (fwrite("BRS1", 1, 4, f) != 4) {
-        perror("fwrite(BRS1)");
+    if (fwrite("BRS", 1, 3, f) != 3) {
+        perror("fwrite(BRS)");
         goto write_err;
     }
 
-    uint16_t version = 1;
+    uint8_t version = 1;
     if (fwrite(&version, sizeof(version), 1, f) != 1) {
         perror("fwrite(version)");
         goto write_err;
@@ -417,7 +417,8 @@ write_err:
     return NULL;
 }
 
-static void download_caches(void)
+//TODO deal with several not all browsers
+static void dump(void)
 {
     CURLcode result;
     result = curl_global_init(CURL_GLOBAL_ALL);
@@ -430,7 +431,14 @@ static void download_caches(void)
         exit(1);
     }
 
+    /*
     const char **filenames;
+    FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+    if (ftsp == NULL) {
+        perror("fts_open");
+        exit(1);
+    }
+
     FTSENT *parent = fts_read(ftsp);
     if (parent != NULL && parent->fts_info == FTS_D) {
         FTSENT *child = fts_children(ftsp, 0);
@@ -439,6 +447,7 @@ static void download_caches(void)
             child = child->fts_link;
         }
     }
+    */
 
     for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
         char url[256];
@@ -494,7 +503,7 @@ static void download_caches(void)
                                 char path[128];
                                 snprintf(path, sizeof(path), "%s/%s.brs", dir, browser_name);
                                 Cache pa = { .b = &browser, .path = path };
-                                download_cache(&pa);
+                                dump_a_browser(&pa);
                             }
                         } else puts("res_url is invalid.");
                     } else printf("[%d] HTTP %d: %s\n", complete, (int)res_status, res_url);
@@ -514,7 +523,7 @@ static void download_caches(void)
     exit(0);
 }
 
-static int read_cache(const char *path, UA *ua, uint8_t *random_number)
+static int load_a_browser(const char *path, UA *ua, uint8_t *random_number)
 {
     if (!ua) return -1;
     FILE *f = fopen(path, "rb");
@@ -523,19 +532,19 @@ static int read_cache(const char *path, UA *ua, uint8_t *random_number)
         return -1;
     }
 
-    char magic[4];
-    if (fread(magic, 1, 4, f) != 4) {
+    char magic[3];
+    if (fread(magic, 1, 3, f) != 3) {
         perror("fread(magic)");
         fclose(f);
         return -1;
     }
-    if (memcmp(magic, "BRS1", 4) != 0) {
+    if (memcmp(magic, "BRS", 3) != 0) {
         puts("ERROR: magic codes don't match");
         fclose(f);
         return -1;
     }
 
-    uint16_t version = 0;
+    uint8_t version = 0;
     if (fread(&version, sizeof(version), 1, f) != 1) {
         perror("fread(version)");
         fclose(f);
@@ -609,7 +618,7 @@ static void usage(const char *message)
     puts("USAGE: fakeua <subcommand>");
     puts("SUBCOMMANDS:");
     puts("  browser [name] [-f]  No name or specify a name from chrome, edge, firefox, safari, opera (case insensitive) with '-f' disabling use of cache");
-    puts("  download             First download to a cache file if not any or update with lastest User-Agent values");
+    puts("  dump                 Dump user-agent data to binary files by browser name as caches");
     puts("  delete               Delete the cache file if any");
     puts("  help                 Show this help message and exit");
     if (message) {
@@ -625,8 +634,8 @@ int main(int argc, char *argv[])
     const char *subcommand = argv[1];
     if (argv[1] == NULL) usage("ERROR: no subcommand is provided\n");
     if (str_ci_equal(subcommand, "help")) usage(NULL);
-    if (str_ci_equal(subcommand, "delete")) delete_caches();
-    if (str_ci_equal(subcommand, "download")) download_caches();
+    if (str_ci_equal(subcommand, "delete")) delete();
+    if (str_ci_equal(subcommand, "dump")) dump();
     if (!str_ci_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided\n");
 
     time_t t = time(NULL);
@@ -651,11 +660,11 @@ int main(int argc, char *argv[])
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
         if (fetch_html(path, &ua, &random_number) != 0) return 1;
     } else {
-        if (read_cache(path, &ua, &random_number) != 0) {
+        if (load_a_browser(path, &ua, &random_number) != 0) {
             puts("cache deserialization failed");
             return 1;
         }
-        printf("reading browser [%s] cache\n", browser_names[browserid]);
+        printf("loading browser [%s] cache\n", browser_names[browserid]);
     }
 
     printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
