@@ -301,7 +301,6 @@ static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
     return parse_res ? 0 : 1;
 }
 
-//TODO what's the case of no dir found
 static void delete()
 {
     FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
@@ -310,19 +309,35 @@ static void delete()
         exit(1);
     }
 
-    FTSENT *ftsent;
-    while ((ftsent = fts_read(ftsp)) != NULL) {
-        if (ftsent->fts_info == FTS_F) {
-            if (unlink(ftsent->fts_path) != 0) perror("unlink");
-        } else if (ftsent->fts_info == FTS_DP) {
-            if (rmdir(ftsent->fts_path) != 0) perror("rmdir");
+    FTSENT *node;
+    while ((node = fts_read(ftsp)) != NULL) {
+        if (node->fts_info == FTS_NS) {
+            if (node->fts_errno == ENOENT) {
+                printf("ERROR: The path '%s' does not exist.\n", node->fts_path);
+            } else {
+                printf("ERROR: accessing '%s': %s\n", node->fts_path, strerror(node->fts_errno));
+            }
+
+            if (node->fts_level == 0) {
+                fts_close(ftsp);
+                exit(1);
+            }
+        } else if (node->fts_info == FTS_DNR) {
+            printf("ERROR: '%s' exists but is not readable: %s\n", node->fts_path, strerror(node->fts_errno));
+            if (node->fts_level == 0) {
+                fts_close(ftsp);
+                exit(1);
+            }
+        } else if (node->fts_info == FTS_F) {
+            if (unlink(node->fts_path) != 0) perror("unlink");
+        } else if (node->fts_info == FTS_DP) {
+            if (rmdir(node->fts_path) != 0) perror("rmdir");
         }
     }
 
     fts_close(ftsp);
     exit(0);
 }
-
 
 static int make_dir(const char *path)
 {
@@ -417,7 +432,6 @@ write_err:
     return NULL;
 }
 
-//TODO deal with several not all browsers
 static void dump(void)
 {
     CURLcode result;
@@ -431,25 +445,39 @@ static void dump(void)
         exit(1);
     }
 
-    /*
-    const char **filenames;
     FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
     if (ftsp == NULL) {
         perror("fts_open");
         exit(1);
     }
 
+    bool has_dir = 1;
+    BrowserId filenames[BROWSER_COUNT];
     FTSENT *parent = fts_read(ftsp);
-    if (parent != NULL && parent->fts_info == FTS_D) {
+    if (parent->fts_errno == ENOENT) {
+        has_dir = 0;
+        if (make_dir(dir) == -1) exit(1);
+    } else if (parent != NULL && parent->fts_info == FTS_D) {
+        size_t index = 0;
         FTSENT *child = fts_children(ftsp, 0);
         while (child != NULL) {
-            *filenames++ = child->fts_name;
+            char *ext = strstr(child->fts_name, ".");
+            *ext = '\0';
+            BrowserId id = get_browserid_by_namestr(child->fts_name);
+            if (id != BROWSER_NONE) {
+                filenames[id] = id;
+                index++;
+            } else filenames[index++] = BROWSER_NONE;
             child = child->fts_link;
         }
     }
-    */
 
     for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
+        if (has_dir && b == filenames[b]) {
+            printf("[%s] already there, skip\n", browser_names[b]);
+            continue;
+        }
+
         char url[256];
         snprintf(url, sizeof url, "%s%s", start_page, browser_names[b]);
         CURL *curl = make_handle(url);
@@ -656,7 +684,10 @@ int main(int argc, char *argv[])
     char path[256];
     snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
 
+    printf("file path is %s\n", path);
+
     if (is_fresh || !fopen(path, "r")) {
+        printf("no cache found.\n");
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
         if (fetch_html(path, &ua, &random_number) != 0) return 1;
     } else {

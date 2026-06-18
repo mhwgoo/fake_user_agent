@@ -1,5 +1,6 @@
 .DS_Store
 fakeua
+fakeua.dSYM/
 .ruff_cache/*
 dist/
 venv/
