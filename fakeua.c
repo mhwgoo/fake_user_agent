@@ -115,9 +115,45 @@ static BrowserId get_browserid_by_namestr(char *browsername)
     return BROWSER_NONE;
 }
 
+static int read_filenames(BrowserId filenames[], uint8_t *len)
+{
+    if (!filenames) return -1;
+    FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
+    if (ftsp == NULL) {
+        perror("fts_open");
+        return -1;
+    }
+
+    FTSENT *parent = fts_read(ftsp);
+    if (parent->fts_errno == ENOENT) {
+        return -1;
+    } else if (parent != NULL && parent->fts_info == FTS_D) {
+        uint8_t index = 0;
+        FTSENT *child = fts_children(ftsp, 0);
+        while (child != NULL && index < BROWSER_COUNT) {
+            char *ext = strstr(child->fts_name, ".");
+            *ext = '\0';
+            BrowserId id = get_browserid_by_namestr(child->fts_name);
+            if (id != BROWSER_NONE) {
+                filenames[id] = id;
+                index++;
+            } else filenames[index++] = BROWSER_NONE;
+            child = child->fts_link;
+        }
+        if (len) *len = index;
+    }
+    return 0;
+}
+
 static BrowserId get_browserid_from_argstr(char *arg)
 {
     if (str_ci_equal(arg, "browser")) {
+        BrowserId fns[BROWSER_COUNT];
+        uint8_t fns_len = 0;
+        if (read_filenames(fns, &fns_len) != -1) {
+            uint8_t random_number = rand_u8(fns_len);
+            return fns[random_number];
+        }
         uint8_t random_number = rand_u8(BROWSER_COUNT);
         return (BrowserId)random_number;
     }
@@ -369,6 +405,7 @@ static void *dump_a_browser(void *arg)
         return NULL;
     }
 
+    printf("dumping browser [%s]\n", browser_names[b->id]);
     if (fwrite("BRS", 1, 3, f) != 3) {
         perror("fwrite(BRS)");
         goto write_err;
@@ -445,35 +482,15 @@ static void dump(void)
         exit(1);
     }
 
-    FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
-    if (ftsp == NULL) {
-        perror("fts_open");
-        exit(1);
-    }
-
     bool has_dir = 1;
-    BrowserId filenames[BROWSER_COUNT];
-    FTSENT *parent = fts_read(ftsp);
-    if (parent->fts_errno == ENOENT) {
-        has_dir = 0;
+    BrowserId fns[BROWSER_COUNT];
+    if (read_filenames(fns, NULL) == -1) {
         if (make_dir(dir) == -1) exit(1);
-    } else if (parent != NULL && parent->fts_info == FTS_D) {
-        size_t index = 0;
-        FTSENT *child = fts_children(ftsp, 0);
-        while (child != NULL) {
-            char *ext = strstr(child->fts_name, ".");
-            *ext = '\0';
-            BrowserId id = get_browserid_by_namestr(child->fts_name);
-            if (id != BROWSER_NONE) {
-                filenames[id] = id;
-                index++;
-            } else filenames[index++] = BROWSER_NONE;
-            child = child->fts_link;
-        }
+        has_dir = 0;
     }
 
     for (BrowserId b = 0; b < BROWSER_COUNT; b++) {
-        if (has_dir && b == filenames[b]) {
+        if (has_dir && b == fns[b]) {
             printf("[%s] already there, skip\n", browser_names[b]);
             continue;
         }
@@ -684,10 +701,7 @@ int main(int argc, char *argv[])
     char path[256];
     snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
 
-    printf("file path is %s\n", path);
-
     if (is_fresh || !fopen(path, "r")) {
-        printf("no cache found.\n");
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
         if (fetch_html(path, &ua, &random_number) != 0) return 1;
     } else {
