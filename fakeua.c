@@ -209,7 +209,7 @@ static CURL *make_handle(const char *url)
     return curl;
 }
 
-static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA *out_ua, uint8_t *out_random_number)
+static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA *out_ua)
 {
     if (!mem || !mem->buf || mem->size < 100) return NULL;
 
@@ -282,9 +282,8 @@ static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA 
         continue;
     }
 
-    if (out_ua && out_random_number) {
+    if (out_ua) {
         uint8_t random_number = rand_u8(text_index);
-        *out_random_number = random_number;
         strncpy(out_ua->item.buf, texts[random_number].buf, texts[random_number].pos + 1);
         out_ua->item.pos = texts[random_number].pos;
         if (out_texts == NULL) return out_ua;
@@ -298,7 +297,7 @@ static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA 
     return out_texts;
 }
 
-static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
+static int fetch_html(const char *url, UA *ua)
 {
     CURLcode result;
     result = curl_global_init(CURL_GLOBAL_ALL);
@@ -330,7 +329,7 @@ static int fetch_html(const char *url, UA *ua, uint8_t *random_number)
     struct memory *mem;
     curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
 
-    void *parse_res = parse(mem, NULL, NULL, ua, random_number);
+    void *parse_res = parse(mem, NULL, NULL, ua);
 
     curl_easy_cleanup(curl);
     curl_global_cleanup();
@@ -544,7 +543,7 @@ static void dump(void)
                             BrowserId browserid = get_browserid_by_namestr(browser_name);
                             browser.id = browserid;
                             printf("parsing browser [%s]\n", browser_name);
-                            if (parse(mem, browser.items, &browser.len, NULL, NULL) != NULL) {
+                            if (parse(mem, browser.items, &browser.len, NULL) != NULL) {
                                 char path[128];
                                 snprintf(path, sizeof(path), "%s/%s.brs", dir, browser_name);
                                 Cache pa = { .b = &browser, .path = path };
@@ -552,7 +551,12 @@ static void dump(void)
                             }
                         } else puts("res_url is invalid.");
                     } else printf("[%d] HTTP %d: %s\n", complete, (int)res_status, res_url);
-                } else printf("[%d] Connection failure: %s\n", complete, res_url);
+                } else {
+                    size_t len = strlen(errbuf);
+                    fprintf(stderr, "[%d] Connection failure: %s : libcurl: (%d) ", complete, res_url, m->data.result);
+                    if (len) fprintf(stderr, "%s%s", errbuf, ((errbuf[len - 1] != '\n') ? "\n" : ""));
+                    else fprintf(stderr, "%s\n", curl_easy_strerror(m->data.result));
+                }
 
                 curl_multi_remove_handle(multi, curl);
                 curl_easy_cleanup(curl);
@@ -568,7 +572,7 @@ static void dump(void)
     exit(0);
 }
 
-static int load_a_browser(const char *path, UA *ua, uint8_t *random_number)
+static int load_a_browser(const char *path, UA *ua)
 {
     if (!ua) return -1;
     FILE *f = fopen(path, "rb");
@@ -652,7 +656,6 @@ static int load_a_browser(const char *path, UA *ua, uint8_t *random_number)
         return -1;
     }
 
-    *random_number = rand_num;
     fclose(f);
     return 0;
 }
@@ -675,7 +678,7 @@ static void usage(const char *message)
 
 int main(int argc, char *argv[])
 {
-    const char *program = argv[0];
+    // const char *program = argv[0];
     const char *subcommand = argv[1];
     if (argv[1] == NULL) usage("ERROR: no subcommand is provided\n");
     if (str_ci_equal(subcommand, "help")) usage(NULL);
@@ -695,7 +698,6 @@ int main(int argc, char *argv[])
     BrowserId browserid = get_browserid_from_argstr(arg);
     if (browserid == BROWSER_NONE) usage("ERROR: wrong browser name is provided\n");
 
-    uint8_t random_number;
     UA ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
 
     char path[256];
@@ -703,16 +705,15 @@ int main(int argc, char *argv[])
 
     if (is_fresh || !fopen(path, "r")) {
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
-        if (fetch_html(path, &ua, &random_number) != 0) return 1;
+        if (fetch_html(path, &ua) != 0) return 1;
     } else {
-        if (load_a_browser(path, &ua, &random_number) != 0) {
+        if (load_a_browser(path, &ua) != 0) {
             puts("cache deserialization failed");
             return 1;
         }
         printf("loading browser [%s] cache\n", browser_names[browserid]);
     }
 
-    printf("random '%s' ua at [%d]:\n", browser_names[browserid], random_number);
     printf("%s\n", ua.item.buf);
 
     return 0;
