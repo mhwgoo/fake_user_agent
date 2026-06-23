@@ -6,18 +6,15 @@
 #include <ctype.h>
 #include <time.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <fts.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <curl/curl.h>
 
-//TODO standardize error handling
-//TODO make it a library as well
-
 static const char *start_page = "https://useragentstring.com/pages/useragentstring.php?name=";
-static char *dir ="./browsers";
 static char errbuf[CURL_ERROR_SIZE];
+char *dir ="./browsers";
 
 typedef enum {
     BROWSER_NONE = -1,   /* sentinel for "unset" */
@@ -97,12 +94,9 @@ static uint8_t rand_u8(uint8_t n)
 
 static int str_ci_equal(const char *a, const char *b)
 {
-    unsigned char ca, cb;
     if (!a || !b) return 0;
     while (*a && *b) {
-        ca = (unsigned char)*a++;
-        cb = (unsigned char)*b++;
-        if (tolower(ca) != tolower(cb)) return 0;
+        if (tolower((unsigned char)*a++) != tolower((unsigned char)*b++)) return 0;
     }
     return *a == *b;
 }
@@ -167,7 +161,7 @@ static size_t write_data(char *contents, size_t sz, size_t nmemb, void *ctx) // 
     struct memory *mem = (struct memory *)ctx;
     char *ptr = realloc(mem->buf, mem->size + realsize);
     if(!ptr) {
-        puts("not enough memory (realloc returned NULL)");
+        puts("ERROR: not enough memory (realloc returned NULL)");
         return 0;
     }
     mem->buf = ptr;
@@ -191,9 +185,9 @@ static CURL *make_handle(const char *url)
     curl_easy_setopt(curl, CURLOPT_PRIVATE, mem);   // curl_easy_cleanup(curl) later will free mem
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
     curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
     curl_easy_setopt(curl, CURLOPT_AUTOREFERER, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 10L);
@@ -211,7 +205,10 @@ static CURL *make_handle(const char *url)
 
 static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA *out_ua)
 {
-    if (!mem || !mem->buf || mem->size < 100) return NULL;
+    if (!mem || !mem->buf || mem->size < 100) {
+        puts("ERROR: not valid html doc");
+        return NULL;
+    }
 
     const char *p = mem->buf;
 
@@ -286,18 +283,20 @@ static void *parse(struct memory *mem, Text out_texts[], uint8_t *out_count, UA 
         uint8_t random_number = rand_u8(text_index);
         strncpy(out_ua->item.buf, texts[random_number].buf, texts[random_number].pos + 1);
         out_ua->item.pos = texts[random_number].pos;
-        if (out_texts == NULL) return out_ua;
+        return out_ua;
     }
 
-    *out_count = text_index;
-    for (uint8_t i = 0; i < text_index; ++i) {
-        strncpy(out_texts[i].buf, texts[i].buf, texts[i].pos + 1);
-        out_texts[i].pos = texts[i].pos;
+    if (out_count) *out_count = text_index;
+    if (out_texts) {
+        for (uint8_t i = 0; i < text_index; ++i) {
+            strncpy(out_texts[i].buf, texts[i].buf, texts[i].pos + 1);
+            out_texts[i].pos = texts[i].pos;
+        }
     }
     return out_texts;
 }
 
-static int fetch_html(const char *url, UA *ua)
+int fetch_ua(const char *url, UA *ua)
 {
     CURLcode result;
     result = curl_global_init(CURL_GLOBAL_ALL);
@@ -310,7 +309,7 @@ static int fetch_html(const char *url, UA *ua)
     result = curl_easy_perform(curl);
     if (result != CURLE_OK) {
         size_t len = strlen(errbuf);
-        fprintf(stderr, "\nlibcurl: (%d) ", result);
+        fprintf(stderr, "Connection failure: %s : libcurl: (%d) ", url, result);
         if (len) fprintf(stderr, "%s%s", errbuf, ((errbuf[len - 1] != '\n') ? "\n" : ""));
         else fprintf(stderr, "%s\n", curl_easy_strerror(result));
         return (int)result;
@@ -331,12 +330,12 @@ static int fetch_html(const char *url, UA *ua)
 
     void *parse_res = parse(mem, NULL, NULL, ua);
 
-    curl_easy_cleanup(curl);
+    curl_easy_cleanup(curl); // in easy mode (not multi mode), curl_easy_cleanup(curl) frees mem
     curl_global_cleanup();
-    return parse_res ? 0 : 1;
+    return parse_res ? 0 : -1;
 }
 
-static void delete()
+void deletes()
 {
     FTS *ftsp = fts_open(&dir, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
     if (ftsp == NULL) {
@@ -348,9 +347,9 @@ static void delete()
     while ((node = fts_read(ftsp)) != NULL) {
         if (node->fts_info == FTS_NS) {
             if (node->fts_errno == ENOENT) {
-                printf("ERROR: The path '%s' does not exist.\n", node->fts_path);
+                fprintf(stderr, "ERROR: The path '%s' does not exist.\n", node->fts_path);
             } else {
-                printf("ERROR: accessing '%s': %s\n", node->fts_path, strerror(node->fts_errno));
+                fprintf(stderr, "ERROR: accessing '%s': %s\n", node->fts_path, strerror(node->fts_errno));
             }
 
             if (node->fts_level == 0) {
@@ -358,7 +357,7 @@ static void delete()
                 exit(1);
             }
         } else if (node->fts_info == FTS_DNR) {
-            printf("ERROR: '%s' exists but is not readable: %s\n", node->fts_path, strerror(node->fts_errno));
+            fprintf(stderr, "ERROR: '%s' exists but is not readable: %s\n", node->fts_path, strerror(node->fts_errno));
             if (node->fts_level == 0) {
                 fts_close(ftsp);
                 exit(1);
@@ -382,7 +381,7 @@ static int make_dir(const char *path)
     return -1;
 }
 
-static void *dump_a_browser(void *arg)
+void *dump_a_browser(void *arg) // accomodate multi-thread needs
 {
     Cache *pa = (Cache*)arg;
     Browser *b = pa->b;
@@ -390,7 +389,7 @@ static void *dump_a_browser(void *arg)
     if (make_dir(dir) == -1) return NULL;
 
     char temp[128];
-    snprintf(temp, sizeof(temp), "%s/%s.tmpXXXXXX", dir, browser_names[b->id]);
+    snprintf(temp, sizeof temp, "%s/%s.tmpXXXXXX", dir, browser_names[b->id]);
     int fd = mkstemp(temp);
     if (fd < 0) {
         perror("mkstemp");
@@ -468,11 +467,9 @@ write_err:
     return NULL;
 }
 
-static void dump(void)
+void dumps(void)
 {
-    CURLcode result;
-    result = curl_global_init(CURL_GLOBAL_ALL);
-    if(result != CURLE_OK) exit(1);
+    if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) exit(1);
 
     signal(SIGINT, sighandler);
     CURLM *multi = curl_multi_init();
@@ -502,7 +499,7 @@ static void dump(void)
             curl_global_cleanup();
             exit(1);
         }
-        curl_multi_add_handle(multi, make_handle(url));
+        curl_multi_add_handle(multi, curl);
     }
 
     int complete = 0;
@@ -514,17 +511,16 @@ static void dump(void)
         curl_multi_perform(multi, &still_running);
 
         CURLMsg *m = NULL;
-        while((m = curl_multi_info_read(multi, &msgs_left))) {
+        while((m = curl_multi_info_read(multi, &msgs_left))) { // loop over each handle
             if(m->msg == CURLMSG_DONE) {
                 CURL *curl = m->easy_handle;
                 char *res_url;
-                curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &res_url);
+                curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &res_url); // if not CURLE_OK, res_url is set to be request url
 
                 struct memory *mem;
                 curl_easy_getinfo(curl, CURLINFO_PRIVATE, &mem);
 
                 Browser browser = {0};
-
                 if(m->data.result == CURLE_OK) {
                     long res_status;
                     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &res_status);
@@ -545,11 +541,11 @@ static void dump(void)
                             printf("parsing browser [%s]\n", browser_name);
                             if (parse(mem, browser.items, &browser.len, NULL) != NULL) {
                                 char path[128];
-                                snprintf(path, sizeof(path), "%s/%s.brs", dir, browser_name);
+                                snprintf(path, sizeof path, "%s/%s.brs", dir, browser_name);
                                 Cache pa = { .b = &browser, .path = path };
                                 dump_a_browser(&pa);
                             }
-                        } else puts("res_url is invalid.");
+                        } else printf("Failed to extract a valid browser name from response url : %s\n", res_url);
                     } else printf("[%d] HTTP %d: %s\n", complete, (int)res_status, res_url);
                 } else {
                     size_t len = strlen(errbuf);
@@ -572,9 +568,9 @@ static void dump(void)
     exit(0);
 }
 
-static int load_a_browser(const char *path, UA *ua)
+int load_ua(const char *path, UA *ua)
 {
-    if (!ua) return -1;
+    if (!path || !ua) return -1;
     FILE *f = fopen(path, "rb");
     if (!f) {
         perror("fopen");
@@ -625,7 +621,7 @@ static int load_a_browser(const char *path, UA *ua)
     }
 
     if (len <= 0) {
-        puts("cache file has lenth 0");
+        puts("ERROR: cache file has lenth 0");
         fclose(f);
         return -1;
     }
@@ -665,12 +661,12 @@ static void usage(const char *message)
     puts("fakeua - get a radndom and valid browser user-agent string - v1.0");
     puts("USAGE: fakeua <subcommand>");
     puts("SUBCOMMANDS:");
-    puts("  browser [name] [-f]  No name or specify a name from chrome, edge, firefox, safari, opera (case insensitive) with '-f' disabling use of cache");
-    puts("  dump                 Dump user-agent data to binary files by browser name as caches");
-    puts("  delete               Delete the cache file if any");
+    puts("  browser [name] [-f]  Optional name from chrome, edge, firefox, safari, opera (case insensitive) with optional '-f' disabling use of cache");
+    puts("  dump                 Dump user-agent data to binary files as caches by browser name");
+    puts("  delete               Delete caches if any");
     puts("  help                 Show this help message and exit");
     if (message) {
-        fprintf(stderr, "%s", message);
+        fprintf(stderr, "%s\n", message);
         exit(1);
     }
     exit(0);
@@ -680,14 +676,14 @@ int main(int argc, char *argv[])
 {
     // const char *program = argv[0];
     const char *subcommand = argv[1];
-    if (argv[1] == NULL) usage("ERROR: no subcommand is provided\n");
+    if (argv[1] == NULL) usage("ERROR: no subcommand is provided");
     if (str_ci_equal(subcommand, "help")) usage(NULL);
-    if (str_ci_equal(subcommand, "delete")) delete();
-    if (str_ci_equal(subcommand, "dump")) dump();
-    if (!str_ci_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided\n");
+    if (str_ci_equal(subcommand, "delete")) deletes();
+    if (str_ci_equal(subcommand, "dump")) dumps();
+    if (!str_ci_equal(subcommand, "browser")) usage("ERROR: wrong subcommand is provided");
 
     time_t t = time(NULL);
-    if (t == (time_t)-1) {
+    if (t == (time_t) - 1) {
         perror("time");
         return 1;
     }
@@ -700,22 +696,18 @@ int main(int argc, char *argv[])
 
     UA ua = { .id = browserid, .item = { .buf = {0}, .pos = 0 } };
 
-    char path[256];
+    char path[128];
     snprintf(path, sizeof path, "%s/%s.brs", dir, browser_names[browserid]);
 
     if (is_fresh || !fopen(path, "r")) {
         snprintf(path, sizeof path, "%s%s", start_page, browser_names[browserid]);
-        if (fetch_html(path, &ua) != 0) return 1;
+        if (fetch_ua(path, &ua) != 0) return 1;
     } else {
-        if (load_a_browser(path, &ua) != 0) {
-            puts("cache deserialization failed");
-            return 1;
-        }
+        if (load_ua(path, &ua) != 0) return 1;
         printf("loading browser [%s] cache\n", browser_names[browserid]);
     }
 
     printf("%s\n", ua.item.buf);
-
     return 0;
 }
 
